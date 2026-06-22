@@ -122,8 +122,8 @@ const ProviderCard: React.FC<{ provider: any; onDelete: (id: string) => void; on
             {fetching ? '获取中...' : '刷新模型'}
           </button>
           <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, background: p.enabled ? 'rgba(108,77,255,0.08)' : 'var(--cb-tag-background)', color: p.enabled ? 'var(--cb-button-primary)' : 'var(--cb-text-secondary)' }}>{p.enabled ? '已启用' : '已停用'}</span>
-          <button onClick={handleEdit} disabled={editing} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cb-text-secondary)', padding: 2, fontSize: 11 }} title="编辑">
-            ✏️
+          <button onClick={handleEdit} disabled={editing} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cb-text-secondary)', padding: 2 }} title="编辑">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="14" height="14" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
           <button onClick={() => onDelete(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e74c3c', padding: 2 }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="14" height="14" strokeLinecap="round">

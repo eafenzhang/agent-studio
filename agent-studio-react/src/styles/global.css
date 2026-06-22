@@ -158,7 +158,7 @@ input, textarea { font-family: inherit; }
 .conversation-agent-card:hover { background: var(--wb-todo-menu-bg-hover); }
 .conversation-agent-card.selected { background: var(--wb-todo-menu-bg-active); }
 .conversation-agent-card__info { flex: 1; min-width: 0; pointer-events: none; }
-.conversation-agent-card__title { font-size: 13px; font-weight: 400; color: var(--cb-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; pointer-events: none; }
+.conversation-agent-card__title { font-size: 13px; font-weight: 400; color: var(--cb-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; pointer-events: none; user-select: none; -webkit-user-select: none; }
 .conversation-agent-card__meta { font-size: 11px; color: var(--wb-color-text-disabled); margin-top: 1px; pointer-events: none; }
 .conversation-agent-card__actions { display: none; align-items: center; gap: 2px; flex-shrink: 0; }
 .conversation-agent-card:hover .conversation-agent-card__actions,
