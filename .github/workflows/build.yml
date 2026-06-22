@@ -43,6 +43,16 @@ jobs:
         working-directory: agent-studio-react
         run: npm run build
 
+      - name: Create placeholder sidecars for CI
+        shell: pwsh
+        working-directory: agent-studio-tauri
+        run: |
+          New-Item -ItemType Directory -Force -Path "src-tauri/binaries" | Out-Null
+          $bytes = [byte[]]@(0x4d, 0x5a)
+          Set-Content -Path "src-tauri/binaries/aioncore-x86_64-pc-windows-msvc.exe" -Value $bytes -AsByteStream
+          Set-Content -Path "src-tauri/binaries/aionrs-x86_64-pc-windows-msvc.exe" -Value $bytes -AsByteStream
+          Write-Host "Placeholder sidecars created"
+
       - name: Build Tauri app
         working-directory: agent-studio-tauri
         run: npm run tauri build
