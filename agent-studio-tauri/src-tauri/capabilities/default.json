@@ -9,6 +9,9 @@
     "shell:allow-spawn",
     "shell:default",
     "dialog:default",
-    "fs:default"
+    "fs:default",
+    "updater:default",
+    "updater:allow-check",
+    "updater:allow-download-and-install"
   ]
 }

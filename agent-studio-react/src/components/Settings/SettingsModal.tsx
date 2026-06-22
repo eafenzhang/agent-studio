@@ -281,23 +281,29 @@ const ModelSettingsContent: React.FC = () => {
   );
 };
 
-// ── 更新设置内容（从 GitHub Release API 加载）──
+// ── 更新设置内容（使用 Tauri 内置更新器）──
 const UpdateSettingsContent: React.FC = () => {
   const [checking, setChecking] = useState(false);
-  const [result, setResult] = useState<{hasUpdate: boolean; version?: string; url?: string} | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
   const [currentVersion] = useState('1.0.0');
 
   const handleCheck = async () => {
     setChecking(true);
-    setResult(null);
+    setStatus(null);
     try {
-      const r = await fetch('https://api.github.com/repos/eafenzhang/agent-studio/releases/latest');
-      if (!r.ok) { setResult({hasUpdate: false}); setChecking(false); return; }
-      const data = await r.json();
-      const latest = (data.tag_name || '').replace(/^v/, '');
-      const hasUpdate = latest !== currentVersion;
-      setResult({hasUpdate, version: latest, url: data.html_url});
-    } catch { setResult({hasUpdate: false}); }
+      const updater = await import('@tauri-apps/plugin-updater');
+      const update = await updater.check();
+      if (!update?.version) {
+        setStatus('current');
+        setChecking(false);
+        return;
+      }
+      setStatus(`发现 v${update.version}，正在下载...`);
+      await update.downloadAndInstall();
+      setStatus('更新完成，请重启应用');
+    } catch (e: any) {
+      setStatus(e?.message?.includes('not found') ? 'current' : `错误: ${e?.message || '检查失败'}`);
+    }
     setChecking(false);
   };
 
@@ -305,31 +311,19 @@ const UpdateSettingsContent: React.FC = () => {
     <div>
       <div style={{ textAlign: 'center', padding: '24px 0' }}>
         <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>v{currentVersion}</div>
-        {result === null ? null : result.hasUpdate ? (
-          <div style={{ fontSize: 13, color: '#e65100', marginBottom: 16 }}>
-            发现新版本 v{result.version}
-          </div>
-        ) : (
-          <div style={{ fontSize: 13, color: 'var(--cb-switch-active-bg)', marginBottom: 16 }}>已是最新版本</div>
-        )}
-        {result?.url && (
-          <div style={{ marginBottom: 12 }}>
-            <a href={result.url} target="_blank" rel="noreferrer"
-              style={{ fontSize: 12, color: 'var(--cb-button-primary)' }}>
-              前往下载 v{result.version}
-            </a>
-          </div>
-        )}
+        {status === 'current' && <div style={{ fontSize: 13, color: 'var(--cb-switch-active-bg)', marginBottom: 16 }}>已是最新版本</div>}
+        {status && status.startsWith('下载') && <div style={{ fontSize: 13, color: 'var(--cb-button-primary)', marginBottom: 16 }}>{status}</div>}
+        {status && status.startsWith('错误') && <div style={{ fontSize: 13, color: '#e65100', marginBottom: 16 }}>{status}</div>}
         <button onClick={handleCheck} disabled={checking}
           style={{ padding: '8px 24px', background: 'var(--cb-button-primary)', color: '#fff', borderRadius: 6, fontSize: 13, fontWeight: 500, border: 'none', cursor: checking ? 'wait' : 'pointer', opacity: checking ? 0.7 : 1 }}>
-          {checking ? '检查中...' : '检查更新'}
+          {checking ? (status?.includes('下载') ? status : '检查中...') : '检查更新'}
         </button>
       </div>
       <div style={{ marginTop: 16 }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--wb-color-text-disabled)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>版本信息</div>
         <div style={{ fontSize: 12, color: 'var(--cb-text-secondary)', lineHeight: 2 }}>
           GitHub: eafenzhang/agent-studio<br />
-          Release: github.com/eafenzhang/agent-studio/releases
+          自动检查更新，发现新版本后自动下载安装
         </div>
       </div>
     </div>
