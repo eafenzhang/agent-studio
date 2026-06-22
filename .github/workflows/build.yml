@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   build:
-    if: "!contains(github.event.head_commit.message, 'chore: bump')"
+    if: contains(github.event.head_commit.message, 'chore: bump') == false
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,7 +44,7 @@ jobs:
           path: agent-studio-tauri/src-tauri/target/release/bundle/nsis/*.exe
 
   bump-and-release:
-    if: "!contains(github.event.head_commit.message, 'chore: bump')"
+    if: contains(github.event.head_commit.message, 'chore: bump') == false
     needs: build
     runs-on: ubuntu-latest
     steps:
