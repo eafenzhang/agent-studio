@@ -2,8 +2,10 @@ name: Build Agent Studio
 
 on:
   push:
-    branches: [ master ]
-    tags: [ 'v*' ]
+    branches:
+      - master
+    tags:
+      - v*
 
 permissions:
   contents: write
