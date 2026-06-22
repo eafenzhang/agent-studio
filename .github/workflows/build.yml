@@ -16,6 +16,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Bump version
+        shell: bash
         run: |
           VERSION=$(node -p "require('./agent-studio-react/package.json').version")
           IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
@@ -59,6 +60,7 @@ jobs:
           path: agent-studio-tauri/src-tauri/target/release/bundle/nsis/*.exe
 
       - name: Push tag and release
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
