@@ -39,6 +39,10 @@ jobs:
         working-directory: agent-studio-tauri
         run: npm ci
 
+      - name: Build frontend
+        working-directory: agent-studio-react
+        run: npm run build
+
       - name: Build Tauri app
         working-directory: agent-studio-tauri
         run: npm run tauri build
