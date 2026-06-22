@@ -22,35 +22,21 @@ export const ConversationDetail: React.FC = () => {
   useEffect(() => {
     if (!conversationTitle) return;
     const init = async () => {
+      if (conversationId) {
+        // 有 ID 直接使用，不显示 loading
+        setConvId(conversationId);
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       try {
-        // 优先使用传递过来的 conversationId
-        if (conversationId) {
-          setConvId(conversationId);
-          const result = await conversationApi.messages(conversationId);
-          const items: any[] = result?.items || [];
-          if (items.length > 0) {
-            useChatStore.getState().setMessages(items.map((m: any) => {
-              const c = m.content || {};
-              return {
-                id: m.id || m.msg_id || `m-${Date.now()}`,
-                conversationId: m.conversation_id || conversationId,
-                role: m.position === 'right' ? 'user' : (m.type === 'tips' ? 'system' : 'assistant'),
-                content: typeof c === 'string' ? c : (c.content || JSON.stringify(c)),
-                time: m.created_at ? new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '',
-              };
-            }));
-          }
+        const list = await conversationApi.list();
+        const existing = list?.items?.find((c: any) => c.name === conversationTitle || c.title === conversationTitle);
+        if (existing) {
+          setConvId(existing.id);
         } else {
-          // 无 ID 时按名称查找
-          const list = await conversationApi.list();
-          const existing = list?.items?.find((c: any) => c.name === conversationTitle || c.title === conversationTitle);
-          if (existing) {
-            setConvId(existing.id);
-          } else {
-            const created = await conversationApi.create(conversationTitle);
-            if (created) setConvId(created.id);
-          }
+          const created = await conversationApi.create(conversationTitle);
+          if (created) setConvId(created.id);
         }
       } catch { /* offline */ }
       setLoading(false);
@@ -65,7 +51,7 @@ export const ConversationDetail: React.FC = () => {
     if (!msg) return;
     sentRef.current = true;
     useChatStore.getState().setPendingMessage(null);
-    // 延迟一下等会话完全就绪
+    // 等会话完全就绪
     const t = setTimeout(() => {
       const store = useChatStore.getState();
       store.addMessage({
@@ -205,7 +191,7 @@ export const ConversationDetail: React.FC = () => {
         )}
         <div ref={messagesEndRef} />
       </div>
-      <ChatInput rows={1} fullDropdowns={false} onSend={handleSend} />
+      <ChatInput rows={1} fullDropdowns={false} onSend={handleSend} hideAgentSelector />
     </div>
   );
 };

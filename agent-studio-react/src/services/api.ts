@@ -39,7 +39,7 @@ export class ApiError extends Error {
 export const conversationApi = {
   list: () => request<ConversationList>('/api/conversations'),
   get: (id: string) => request<ConversationItem>(`/api/conversations/${id}`),
-  create: async (name: string, agentId?: string) => {
+  create: async (name: string, agentId?: string, options?: { assistantId?: string; skills?: string[] }) => {
     const id = agentId || DEFAULT_AGENT_ID;
     const isAionCli = id === '632f31d2';
     const body: Record<string, any> = {
@@ -47,6 +47,11 @@ export const conversationApi = {
       name,
       extra: isAionCli ? { backend: 'aionrs' } : { agent_id: id },
     };
+    // 传入 assistant（专家）和 skills
+    if (options?.assistantId) body.assistant = { id: options.assistantId };
+    if (options?.skills && options.skills.length > 0) {
+      body.extra = { ...body.extra, skill_ids: options.skills };
+    }
     // Aion CLI 需要传入 model（provider_id + model_name）
     if (isAionCli) {
       try {

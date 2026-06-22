@@ -38,10 +38,11 @@ export const HomePage: React.FC = () => {
 
   const handleSend = async (content: string) => {
     if (!content.trim()) return;
-    // 缓存待发送消息，ConversationDetail 会消费
     useChatStore.getState().setPendingMessage(content);
     try {
-      const conv = await conversationApi.create(content.slice(0, 30), agentId);
+      const conv = await conversationApi.create(content.slice(0, 30), agentId, {
+        assistantId: selectedExpert || undefined,
+      });
       if (conv) { openConversation(conv.title || conv.name || content.slice(0, 20), conv.id); return; }
     } catch { /* offline */ }
     openConversation(content.slice(0, 20));

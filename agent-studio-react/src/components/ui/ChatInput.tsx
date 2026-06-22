@@ -9,6 +9,8 @@ interface ChatInputProps {
   rows?: number;
   fullDropdowns?: boolean;
   onSend?: (content: string) => void;
+  /** 是否显示 ACP Agent 选择器（详情页已锁定） */
+  hideAgentSelector?: boolean;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
@@ -16,6 +18,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   rows = 2,
   fullDropdowns = true,
   onSend,
+  hideAgentSelector = false,
 }) => {
   const agentId = useAppStore((s) => s.selectedAgentId);
   const setAgentId = useAppStore((s) => s.setSelectedAgentId);
@@ -95,11 +98,24 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown} />
 
           <div className="chat-input-toolbar">
-            <button className="chat-toolbar-plus" aria-label="添加">
+            <button className="chat-toolbar-plus" aria-label="添加" onClick={() => document.getElementById('file-upload')?.click()}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
               </svg>
             </button>
+            <input id="file-upload" type="file" multiple style={{display:'none'}} onChange={async (e) => {
+              const files = e.target.files;
+              if (!files || files.length === 0) return;
+              const file = files[0];
+              const formData = new FormData();
+              formData.append('file', file);
+              try {
+                const res = await fetch('http://localhost:25808/api/fs/upload', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data?.success) console.log('Uploaded:', data.data);
+              } catch (err) { console.error('Upload failed:', err); }
+              e.target.value = '';
+            }} />
 
             {fullDropdowns ? (
               <Dropdown trigger={
@@ -129,7 +145,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             } sections={[{ sectionLabel: '技能', items: toolSectionItems }]}
               multiSelect activeValues={activeTools} onToggle={handleToolToggle} />
 
-            {agentOptions.length > 0 && (
+            {!hideAgentSelector && agentOptions.length > 0 && (
               <Dropdown trigger={
                 <button className="chat-toolbar-btn" title="选择 ACP Agent">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
