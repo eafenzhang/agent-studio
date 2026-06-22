@@ -39,7 +39,7 @@ export class ApiError extends Error {
 export const conversationApi = {
   list: () => request<ConversationList>('/api/conversations'),
   get: (id: string) => request<ConversationItem>(`/api/conversations/${id}`),
-  create: async (name: string, agentId?: string, options?: { assistantId?: string; skills?: string[] }) => {
+  create: async (name: string, agentId?: string, options?: { assistantId?: string; skills?: string[]; mode?: string }) => {
     const id = agentId || DEFAULT_AGENT_ID;
     const isAionCli = id === '632f31d2';
     const body: Record<string, any> = {
@@ -47,13 +47,18 @@ export const conversationApi = {
       name,
       extra: isAionCli ? { backend: 'aionrs' } : { agent_id: id },
     };
-    // 传入 assistant（专家）和 skills
+    // 传入 assistant（专家）、skills 和 mode
     if (options?.assistantId) body.assistant = { id: options.assistantId };
     if (options?.skills && options.skills.length > 0) {
       body.extra = { ...body.extra, skill_ids: options.skills };
     }
-    // Aion CLI 需要传入 model（provider_id + model_name）
+    if (options?.mode) {
+      body.extra = { ...body.extra, mode: options.mode };
+    }
+    // Aion CLI 需要传入 model 和多轮对话配置
     if (isAionCli) {
+      body.extra.max_turns = 30;
+      body.extra.system_prompt = '你是一个自主AI助手，可以主动思考、规划和执行任务。每次回复时，先分析上下文，然后决定是回答问题还是主动采取行动。你可以使用工具来帮助完成任务。保持对话的连贯性和上下文意识。';
       try {
         const providers = await request<any[]>('/api/providers');
         if (providers && providers.length > 0) {
