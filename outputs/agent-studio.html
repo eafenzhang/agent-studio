@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="canvas:aspect-ratio" content="16:9" />
+<title>Agent Studio — 你的 AI 创作工作台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+/* ===== Seed Tokens ===== */
+:root {
+  --seed-bg: #0d0d1a;
+  --seed-surface: #14142a;
+  --seed-surface-elevated: #1c1c36;
+  --seed-fg: #f0f1f5;
+  --seed-primary: #6c5ce7;
+  --seed-accent: #a29bfe;
+  --seed-radius: 8px;
+  --seed-success: #27a644;
+
+  /* Base derived */
+  --bg: var(--seed-bg);
+  --sidebar-bg: var(--seed-surface);
+  --surface: var(--seed-surface);
+  --surface-hover: var(--seed-surface-elevated);
+  --fg: var(--seed-fg);
+  --fg-on-accent: #fff;
+  --fg-secondary: #b8bcd0;
+  --fg-muted: #6e7191;
+  --fg-subtle: #4e516b;
+  --accent: var(--seed-primary);
+  --accent-bright: var(--seed-accent);
+  --accent-hover: #7d6ff0;
+
+  /* Alpha accent */
+  --accent-a8: rgba(108,92,231,0.08);
+  --accent-a12: rgba(108,92,231,0.12);
+  --accent-a15: rgba(108,92,231,0.15);
+  --accent-a20: rgba(108,92,231,0.2);
+  --accent-a25: rgba(108,92,231,0.25);
+  --accent-a30: rgba(108,92,231,0.3);
+  --accent-a40: rgba(108,92,231,0.4);
+  --accent-bright-a8: rgba(162,155,254,0.08);
+  --accent-bright-a15: rgba(162,155,254,0.15);
+
+  /* Status */
+  --success: var(--seed-success);
+  --success-a15: rgba(39,166,68,0.15);
+  --status-green: #4ade80;
+
+  /* Border */
+  --border: rgba(255,255,255,0.07);
+  --border-strong: rgba(255,255,255,0.12);
+
+  /* White-alpha surface layers */
+  --surface-a2: rgba(255,255,255,0.02);
+  --surface-a25: rgba(255,255,255,0.025);
+  --surface-a3: rgba(255,255,255,0.03);
+  --surface-a4: rgba(255,255,255,0.04);
+  --surface-a5: rgba(255,255,255,0.05);
+  --surface-a6: rgba(255,255,255,0.06);
+  --surface-a7: rgba(255,255,255,0.07);
+  --surface-a8: rgba(255,255,255,0.08);
+  --surface-a10: rgba(255,255,255,0.10);
+  --surface-a12: rgba(255,255,255,0.12);
+  --surface-a14: rgba(255,255,255,0.14);
+
+  /* Overlay */
+  --overlay-bg: rgba(0,0,0,0.75);
+
+  /* Focus ring */
+  --focus-ring: rgba(108,92,231,0.15);
+
+  /* Card hover shadow */
+  --card-shadow: rgba(0,0,0,0.4);
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius: var(--seed-radius);
+  --radius-lg: 12px;
+  --radius-pill: 9999px;
+
+  /* Typography */
+  --font-body: 'Inter', -apple-system, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
+  --weight-read: 400;
+  --weight-emphasize: 500;
+  --weight-announce: 600;
+
+  /* Spacing */
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px;
+
+  /* Sidebar */
+  --sidebar-width: 240px;
+
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s ease;
+  --transition-smooth: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===== Reset ===== */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  height: 100%; font-family: var(--font-body); font-feature-settings: "cv01", "ss03";
+  font-size: 15px; line-height: 1.5; color: var(--fg); background: var(--bg);
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; overflow: hidden;
+}
+button { font-family: inherit; font-feature-settings: inherit; border: none; cursor: pointer; background: none; color: inherit; }
+a { color: inherit; text-decoration: none; }
+ul, ol { list-style: none; }
+input, textarea { font-family: inherit; font-feature-settings: inherit; }
+
+/* SVG token inheritance */
+.template-card-preview svg [fill="#0d0d1a"],
+.template-detail-preview svg [fill="#0d0d1a"] { fill: var(--bg); }
+.template-card-preview svg [fill="#14142a"],
+.template-detail-preview svg [fill="#14142a"] { fill: var(--surface); }
+.template-card-preview svg [fill="#1c1c36"],
+.template-detail-preview svg [fill="#1c1c36"] { fill: var(--surface-hover); }
+.template-card-preview svg [fill="#f0f1f5"],
+.template-detail-preview svg [fill="#f0f1f5"] { fill: var(--fg); }
+.template-card-preview svg [fill="#6c5ce7"],
+.template-detail-preview svg [fill="#6c5ce7"],
+.template-card-preview polyline[stroke="#6c5ce7"],
+.template-detail-preview polyline[stroke="#6c5ce7"] { fill: var(--accent); stroke: var(--accent); }
+.template-card-preview svg [fill="#a29bfe"],
+.template-detail-preview svg [fill="#a29bfe"] { fill: var(--accent-bright); }
+.template-card-preview svg [fill="#4e516b"],
+.template-detail-preview svg [fill="#4e516b"] { fill: var(--fg-subtle); }
+.template-card-preview text[fill="#6c5ce7"],
+.template-detail-preview text[fill="#6c5ce7"] { fill: var(--accent); }
+.template-card-preview text[fill="#a29bfe"],
+.template-detail-preview text[fill="#a29bfe"] { fill: var(--accent-bright); }
+.template-card-preview text[fill="#f0f1f5"],
+.template-detail-preview text[fill="#f0f1f5"] { fill: var(--fg); }
+
+/* ===== App Shell ===== */
+.app-shell { display: flex; height: 100vh; width: 100%; }
+
+/* ===== Sidebar ===== */
+.sidebar {
+  width: var(--sidebar-width); min-width: var(--sidebar-width); background: var(--sidebar-bg);
+  border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; overflow-y: auto; z-index: 10;
+}
+.sidebar-header { padding: var(--space-5) var(--space-5) var(--space-3); }
+.sidebar-brand { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-5); }
+.sidebar-brand-icon {
+  width: 28px; height: 28px; background: linear-gradient(135deg, var(--accent), var(--accent-bright));
+  border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.sidebar-brand-icon svg { width: 16px; height: 16px; color: var(--fg-on-accent); }
+.sidebar-brand-name { font-size: 14px; font-weight: var(--weight-announce); color: var(--fg); letter-spacing: -0.01em; }
+
+.btn-new-task {
+  width: 100%; display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3); background: var(--surface-a4);
+  border: 1px solid var(--border); border-radius: var(--radius); color: var(--fg-secondary);
+  font-size: 13px; font-weight: var(--weight-emphasize);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+.btn-new-task:hover { background: var(--surface-a7); border-color: var(--border-strong); }
+.btn-new-task svg { width: 15px; height: 15px; color: var(--fg-muted); flex-shrink: 0; }
+
+/* Sidebar Nav */
+.sidebar-nav { padding: var(--space-2) var(--space-3); }
+.nav-item {
+  display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3);
+  border-radius: 6px; font-size: 13.5px; font-weight: var(--weight-emphasize); color: var(--fg-secondary);
+  cursor: pointer; position: relative; transition: background var(--transition-fast), color var(--transition-fast);
+}
+.nav-item:hover { background: var(--surface-a4); color: var(--fg); }
+.nav-item.active { background: var(--accent-a12); color: var(--fg); }
+.nav-item.active::before {
+  content: ''; position: absolute; left: -8px; top: 50%; transform: translateY(-50%);
+  width: 3px; height: 18px; background: var(--accent); border-radius: 0 2px 2px 0;
+}
+.nav-item svg { width: 17px; height: 17px; color: var(--fg-muted); flex-shrink: 0; }
+.nav-item.active svg { color: var(--accent-bright); }
+
+.sidebar-divider { height: 1px; background: var(--border); margin: var(--space-3) var(--space-5); }
+.sidebar-section-title {
+  padding: var(--space-3) var(--space-5) var(--space-1); font-size: 11px;
+  font-weight: var(--weight-emphasize); color: var(--fg-muted); letter-spacing: 0.06em; text-transform: uppercase;
+}
+.sidebar-task-item {
+  display: flex; flex-direction: column; padding: var(--space-2) var(--space-5);
+  cursor: pointer; transition: background var(--transition-fast);
+}
+.sidebar-task-item:hover { background: var(--surface-a3); }
+.sidebar-task-path { font-size: 12px; font-weight: var(--weight-emphasize); color: var(--fg-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sidebar-task-meta { font-size: 11px; color: var(--fg-muted); margin-top: 2px; }
+.sidebar-task-desc { font-size: 12px; color: var(--fg-muted); margin-top: var(--space-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Sidebar Footer */
+.sidebar-footer { margin-top: auto; padding: var(--space-4) var(--space-5); border-top: 1px solid var(--border); display: flex; align-items: center; gap: var(--space-3); }
+.sidebar-footer-badge {
+  width: 28px; height: 28px; background: var(--accent); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: var(--weight-announce); color: var(--fg-on-accent);
+}
+.sidebar-footer-icon { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; cursor: pointer; transition: background var(--transition-fast); }
+.sidebar-footer-icon:hover { background: var(--surface-a6); }
+.sidebar-footer-icon svg { width: 16px; height: 16px; color: var(--fg-muted); }
+
+/* ===== Main Content ===== */
+.main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; min-width: 0; }
+.page { display: none; min-height: 100%; }
+.page.active { display: flex; flex-direction: column; }
+.page-fade-in { animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ===== Home Page ===== */
+.main-header { padding: var(--space-6) var(--space-10) var(--space-4); display: flex; align-items: flex-start; justify-content: space-between; }
+.main-header-left { flex: 1; }
+.main-brand { font-size: 28px; font-weight: var(--weight-announce); color: var(--fg); letter-spacing: -0.02em; line-height: 1.1; }
+.main-tagline { font-size: 14px; color: var(--fg-muted); margin-top: var(--space-1); font-weight: var(--weight-read); }
+.main-header-right { display: flex; align-items: center; gap: var(--space-3); }
+.ai-avatar { width: 40px; height: 40px; position: relative; cursor: pointer; }
+.ai-avatar-img { width: 40px; height: 40px; border-radius: 50%; background: var(--surface-hover); border: 2px solid var(--border-strong); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.ai-avatar-img svg { width: 24px; height: 24px; }
+.ai-avatar-status { position: absolute; bottom: -1px; right: -1px; width: 12px; height: 12px; background: var(--success); border-radius: 50%; border: 2px solid var(--bg); }
+
+/* Category Buttons */
+.category-bar { padding: 0 var(--space-10); display: flex; gap: var(--space-3); flex-wrap: wrap; }
+.category-btn {
+  padding: var(--space-2) var(--space-5); background: var(--surface-a4); border: 1px solid var(--border);
+  border-radius: var(--radius-pill); font-size: 13px; font-weight: var(--weight-emphasize); color: var(--fg-secondary);
+  transition: all var(--transition-fast);
+}
+.category-btn:hover { background: var(--surface-a7); border-color: var(--border-strong); color: var(--fg); }
+.category-btn.active { background: var(--accent); border-color: var(--accent); color: var(--fg-on-accent); }
+
+/* Tab Bar */
+.tab-bar { padding: var(--space-6) var(--space-10) var(--space-3); display: flex; gap: var(--space-1); border-bottom: 1px solid var(--border); }
+.tab-item { padding: var(--space-2) var(--space-5); font-size: 14px; font-weight: var(--weight-emphasize); color: var(--fg-muted); border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; transition: color var(--transition-fast), border-color var(--transition-fast); }
+.tab-item:hover { color: var(--fg-secondary); }
+.tab-item.active { color: var(--fg); border-bottom-color: var(--accent); }
+
+/* ===== AI Input Area ===== */
+.ai-input-section { padding: var(--space-6) var(--space-10); }
+.ai-input-wrapper {
+  background: var(--surface-a3); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  overflow: hidden; transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.ai-input-wrapper:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--focus-ring); }
+.ai-input-field { width: 100%; padding: var(--space-5); background: transparent; border: none; outline: none; color: var(--fg); font-size: 15px; font-weight: var(--weight-read); line-height: 1.6; resize: none; min-height: 56px; }
+.ai-input-field::placeholder { color: var(--fg-muted); }
+.ai-input-toolbar { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-5); border-top: 1px solid var(--border); }
+.toolbar-btn { display: flex; align-items: center; gap: var(--space-1); padding: var(--space-1) var(--space-3); border-radius: var(--radius-sm); font-size: 12px; font-weight: var(--weight-emphasize); color: var(--fg-muted); transition: background var(--transition-fast), color var(--transition-fast); }
+.toolbar-btn:hover { background: var(--surface-a6); color: var(--fg-secondary); }
+.toolbar-btn svg { width: 14px; height: 14px; }
+.toolbar-btn-primary { color: var(--accent-bright); }
+.toolbar-spacer { flex: 1; }
+.toolbar-send-btn { width: 32px; height: 32px; background: var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background var(--transition-fast), transform var(--transition-fast); }
+.toolbar-send-btn:hover { background: var(--accent-hover); transform: scale(1.05); }
+.toolbar-send-btn svg { width: 15px; height: 15px; color: var(--fg-on-accent); }
+.ai-input-hint { padding: var(--space-2) var(--space-10); font-size: 12px; color: var(--fg-subtle); }
+.ai-input-hint-btn { font-size: 12px; color: var(--fg-muted); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.ai-input-hint-btn:hover { color: var(--fg-secondary); }
+
+/* ===== Template Cards ===== */
+.template-section { padding: var(--space-6) var(--space-10) var(--space-10); flex: 1; }
+.template-section-title { font-size: 13px; font-weight: var(--weight-emphasize); color: var(--fg-muted); margin-bottom: var(--space-4); letter-spacing: 0.02em; }
+.template-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-5); }
+.template-card {
+  background: var(--surface-a25); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  overflow: hidden; cursor: pointer; position: relative;
+  transition: transform var(--transition-smooth), box-shadow var(--transition-smooth), border-color var(--transition-smooth);
+}
+.template-card:hover { transform: translateY(-4px) scale(1.015); box-shadow: 0 12px 32px var(--card-shadow), 0 0 0 1px var(--accent-a20); border-color: var(--border-strong); }
+.template-card:hover .template-card-title { color: var(--fg); }
+.template-card:hover .template-card-preview { opacity: 1; }
+.template-card-preview { aspect-ratio: 16/10; background: var(--surface); position: relative; overflow: hidden; opacity: 0.85; transition: opacity var(--transition-smooth); }
+.template-card-preview svg { width: 100%; height: 100%; }
+.template-card-body { padding: var(--space-4); }
+.template-card-title { font-size: 14px; font-weight: var(--weight-announce); color: var(--fg-secondary); letter-spacing: -0.01em; transition: color var(--transition-fast); }
+.template-card-desc { font-size: 12px; color: var(--fg-muted); margin-top: var(--space-1); line-height: 1.5; }
+.template-card-tag { display: inline-block; margin-top: var(--space-3); padding: 2px var(--space-2); background: var(--surface-a5); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 11px; font-weight: var(--weight-emphasize); color: var(--fg-muted); }
+
+/* Card Overlay */
+.template-card-overlay { position: fixed; inset: 0; background: var(--overlay-bg); z-index: 100; display: none; align-items: center; justify-content: center; animation: overlayIn 0.25s ease; }
+.template-card-overlay.visible { display: flex; }
+@keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
+.template-card-detail { background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-lg); width: 520px; max-width: 90vw; max-height: 80vh; overflow-y: auto; animation: detailIn 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+@keyframes detailIn { from { opacity: 0; transform: scale(0.95) translateY(12px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+.template-detail-header { padding: var(--space-6); border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; }
+.template-detail-title { font-size: 20px; font-weight: var(--weight-announce); color: var(--fg); letter-spacing: -0.02em; }
+.template-detail-close { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: background var(--transition-fast); }
+.template-detail-close:hover { background: var(--surface-a8); }
+.template-detail-close svg { width: 16px; height: 16px; color: var(--fg-muted); }
+.template-detail-preview { aspect-ratio: 16/10; background: var(--bg); margin: var(--space-4) var(--space-6); border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
+.template-detail-preview svg { width: 100%; height: 100%; }
+.template-detail-body { padding: var(--space-4) var(--space-6) var(--space-6); }
+.template-detail-desc { font-size: 14px; color: var(--fg-secondary); line-height: 1.6; }
+.template-detail-actions { display: flex; gap: var(--space-3); margin-top: var(--space-5); }
+.detail-btn-primary { padding: var(--space-2) var(--space-5); background: var(--accent); border-radius: var(--radius); font-size: 13px; font-weight: var(--weight-emphasize); color: var(--fg-on-accent); transition: background var(--transition-fast); }
+.detail-btn-primary:hover { background: var(--accent-hover); }
+.detail-btn-ghost { padding: var(--space-2) var(--space-5); background: var(--surface-a4); border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px; font-weight: var(--weight-emphasize); color: var(--fg-secondary); transition: background var(--transition-fast), border-color var(--transition-fast); }
+.detail-btn-ghost:hover { background: var(--surface-a7); border-color: var(--border-strong); }
+
+/* ===== Projects Page ===== */
+.projects-header { padding: var(--space-6) var(--space-10) var(--space-4); display: flex; align-items: center; justify-content: space-between; }
+.projects-title { font-size: 22px; font-weight: var(--weight-announce); color: var(--fg); letter-spacing: -0.02em; }
+.projects-actions { display: flex; gap: var(--space-3); }
+.projects-search { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-4); background: var(--surface-a4); border: 1px solid var(--border); border-radius: var(--radius); transition: border-color var(--transition-fast); }
+.projects-search:focus-within { border-color: var(--accent); }
+.projects-search svg { width: 14px; height: 14px; color: var(--fg-muted); flex-shrink: 0; }
+.projects-search input { background: transparent; border: none; outline: none; color: var(--fg); font-size: 13px; width: 160px; }
+.projects-search input::placeholder { color: var(--fg-muted); }
+.projects-grid { padding: 0 var(--space-10) var(--space-10); display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-5); }
+.project-card { background: var(--surface-a25); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-5); cursor: pointer; transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-smooth); }
+.project-card:hover { background: var(--surface-a4); border-color: var(--border-strong); transform: translateY(-2px); }
+.project-card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: var(--space-3); }
+.project-card-icon { width: 36px; height: 36px; background: var(--accent-a12); border-radius: var(--radius); display: flex; align-items: center; justify-content: center; }
+.project-card-icon svg { width: 18px; height: 18px; color: var(--accent-bright); }
+.project-card-status { padding: 2px var(--space-2); border-radius: var(--radius-pill); font-size: 11px; font-weight: var(--weight-emphasize); }
+.project-card-status.active { background: var(--success-a15); color: var(--status-green); }
+.project-card-status.paused { background: var(--surface-a6); color: var(--fg-muted); }
+.project-card-status.completed { background: var(--accent-a15); color: var(--accent-bright); }
+.project-card-name { font-size: 16px; font-weight: var(--weight-announce); color: var(--fg); letter-spacing: -0.01em; }
+.project-card-desc { font-size: 13px; color: var(--fg-muted); margin-top: var(--space-1); line-height: 1.5; }
+.project-card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: var(--space-5); padding-top: var(--space-3); border-top: 1px solid var(--border); }
+.project-card-meta { font-size: 11px; color: var(--fg-subtle); }
+.project-card-members { display: flex; }
+.project-card-member { width: 22px; height: 22px; border-radius: 50%; background: var(--surface-hover); border: 2px solid var(--surface); display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: var(--weight-announce); color: var(--fg-muted); margin-left: -4px; }
+.project-card-member:first-child { margin-left: 0; }
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface-a8); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--surface-a14); }
+
+/* ===== Responsive ===== */
+@media (max-width: 1024px) { .template-grid { grid-template-columns: repeat(2, 1fr); } .projects-grid { grid-template-columns: 1fr; } }
+@media (max-width: 768px) {
+  :root { --sidebar-width: 0px; }
+  .sidebar { display: none; }
+  .template-grid { grid-template-columns: 1fr; }
+  .main-header, .category-bar, .tab-bar, .ai-input-section, .template-section, .projects-header, .projects-grid { padding-left: var(--space-5); padding-right: var(--space-5); }
+}
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <!-- ===== Sidebar ===== -->
+  <aside class="sidebar" data-component="侧边栏导航" data-od-id="sidebar">
+    <div class="sidebar-header" data-component="侧边栏头部" data-od-id="sidebar-header">
+      <div class="sidebar-brand">
+        <div class="sidebar-brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        </div>
+        <span class="sidebar-brand-name">Agent Studio</span>
+      </div>
+      <button class="btn-new-task" data-component="新建任务按钮" data-od-id="new-task-btn" aria-label="新建任务">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        新建任务
+      </button>
+    </div>
+
+    <nav class="sidebar-nav" data-component="主导航菜单" data-od-id="main-nav" aria-label="主导航">
+      <div class="nav-item active" data-page="home" onclick="switchPage('home', this)" role="button" tabindex="0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a7 7 0 0 1 7 7v1a7 7 0 0 1-14 0v-1a7 7 0 0 1 7-7z"/><path d="M12 2v3"/><circle cx="12" cy="12" r="2"/></svg>
+        助理
+      </div>
+      <div class="nav-item" data-page="projects" onclick="switchPage('projects', this)" role="button" tabindex="0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        项目
+      </div>
+      <div class="nav-item" onclick="switchPage('home', this)" role="button" tabindex="0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M3 21v-2a7 7 0 0 1 7-7h4a7 7 0 0 1 7 7v2"/></svg>
+        专家
+      </div>
+      <div class="nav-item" onclick="switchPage('home', this)" role="button" tabindex="0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+        自动化
+      </div>
+      <div class="nav-item" onclick="switchPage('home', this)" role="button" tabindex="0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+        更多
+      </div>
+    </nav>
+
+    <div class="sidebar-divider"></div>
+
+    <section data-component="最近任务列表" data-od-id="recent-tasks">
+      <div class="sidebar-section-title">最近任务</div>
+      <div class="sidebar-task-item">
+        <span class="sidebar-task-path">品牌官网重设计</span>
+        <span class="sidebar-task-meta">3 天前</span>
+        <span class="sidebar-task-desc">1. 首页视觉方案与组件库对接...</span>
+      </div>
+      <div class="sidebar-task-item">
+        <span class="sidebar-task-path">移动端交互原型</span>
+        <span class="sidebar-task-meta">7 天前</span>
+        <span class="sidebar-task-desc">用户注册流程优化与手势交互...</span>
+      </div>
+      <div class="sidebar-task-item">
+        <span class="sidebar-task-path">数据仪表盘 v2</span>
+        <span class="sidebar-task-meta">12 天前</span>
+        <span class="sidebar-task-desc">图表组件规范化与暗色主题适配...</span>
+      </div>
+    </section>
+
+    <div class="sidebar-divider"></div>
+
+    <section data-component="新手指引" data-od-id="guide-section">
+      <div class="sidebar-section-title">新手指引</div>
+      <div class="sidebar-task-item">
+        <span class="sidebar-task-path">生成项目功能介绍</span>
+        <span class="sidebar-task-meta">5 天前</span>
+      </div>
+    </section>
+
+    <footer class="sidebar-footer" data-component="侧边栏底部" data-od-id="sidebar-footer">
+      <div class="sidebar-footer-badge" aria-label="12 条未读通知">12</div>
+      <div class="sidebar-footer-icon" role="button" tabindex="0" aria-label="通知">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      </div>
+      <div class="sidebar-footer-icon" role="button" tabindex="0" aria-label="设置">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </div>
+    </footer>
+  </aside>
+
+  <!-- ===== Main Content Area ===== -->
+  <main class="main-content" data-component="主内容区" data-od-id="main-content">
+
+    <!-- ===== Home Page ===== -->
+    <div class="page active page-fade-in" id="page-home" data-component="主界面" data-od-id="home-page">
+      <header class="main-header" data-component="品牌头部" data-od-id="brand-header">
+        <div class="main-header-left">
+          <h1 class="main-brand">Agent Studio</h1>
+          <p class="main-tagline">你的 AI 创作工作台</p>
+        </div>
+        <div class="main-header-right">
+          <div class="ai-avatar" title="AI 助手" aria-label="AI 助手，在线状态">
+            <div class="ai-avatar-img">
+              <svg viewBox="0 0 40 40" fill="none">
+                <circle cx="20" cy="20" r="18" style="fill:var(--surface-hover)"/>
+                <ellipse cx="14" cy="10" rx="5" ry="7" style="fill:var(--illus-ear, #2a2a4a); stroke:var(--illus-ear-stroke, #3a3a5a)" stroke-width="1"/>
+                <ellipse cx="26" cy="10" rx="5" ry="7" style="fill:var(--illus-ear, #2a2a4a); stroke:var(--illus-ear-stroke, #3a3a5a)" stroke-width="1"/>
+                <circle cx="15" cy="19" r="3.5" style="fill:var(--fg)"/>
+                <circle cx="25" cy="19" r="3.5" style="fill:var(--fg)"/>
+                <circle cx="15.8" cy="19" r="2" style="fill:var(--accent)"/>
+                <circle cx="25.8" cy="19" r="2" style="fill:var(--accent)"/>
+                <circle cx="16.3" cy="18.3" r="0.7" style="fill:var(--fg-on-accent)"/>
+                <circle cx="26.3" cy="18.3" r="0.7" style="fill:var(--fg-on-accent)"/>
+                <ellipse cx="20" cy="25" rx="3" ry="1.5" style="fill:var(--illus-nose, #f0a0b0)"/>
+                <line x1="10" y1="23" x2="5" y2="22" style="stroke:var(--fg-muted)" stroke-width="0.8" stroke-linecap="round"/>
+                <line x1="10" y1="25" x2="5" y2="26" style="stroke:var(--fg-muted)" stroke-width="0.8" stroke-linecap="round"/>
+                <line x1="30" y1="23" x2="35" y2="22" style="stroke:var(--fg-muted)" stroke-width="0.8" stroke-linecap="round"/>
+                <line x1="30" y1="25" x2="35" y2="26" style="stroke:var(--fg-muted)" stroke-width="0.8" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="ai-avatar-status"></div>
+          </div>
+        </div>
+      </header>
+
+      <section class="category-bar" data-component="分类按钮组" data-od-id="category-bar" aria-label="任务分类">
+        <button class="category-btn active">日常办公</button>
+        <button class="category-btn">代写开发</button>
+        <button class="category-btn">设计检查</button>
+      </section>
+
+      <nav class="tab-bar" data-component="标签切换栏" data-od-id="tab-bar" aria-label="设计类型标签">
+        <div class="tab-item active" onclick="switchTab(this)" role="tab" aria-selected="true">网站设计</div>
+        <div class="tab-item" onclick="switchTab(this)" role="tab" aria-selected="false">PPT 设计</div>
+        <div class="tab-item" onclick="switchTab(this)" role="tab" aria-selected="false">视觉海报</div>
+      </nav>
+
+      <section class="ai-input-section" data-component="AI 对话输入" data-od-id="ai-input">
+        <div class="ai-input-wrapper">
+          <label for="ai-prompt" class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">输入你的需求描述</label>
+          <textarea id="ai-prompt" class="ai-input-field" rows="2" placeholder="今天你想做什么？输入需求描述，或引用对话内容..." aria-label="AI 对话输入框"></textarea>
+          <div class="ai-input-toolbar" data-component="输入工具栏" data-od-id="input-toolbar">
+            <button class="toolbar-btn toolbar-btn-primary" aria-label="Chat 模式">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              Chat
+              <svg viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="width:8px;height:5px;margin-left:2px"><polyline points="1 1 5 5 9 1"/></svg>
+            </button>
+            <button class="toolbar-btn" aria-label="自动模式">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
+              自动
+            </button>
+            <button class="toolbar-btn" aria-label="找灵感">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              找灵感
+            </button>
+            <button class="toolbar-btn" aria-label="翻译和重写">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 8 5 3 19 3 19 8"/><path d="M12 3v14"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+              翻译和重写
+            </button>
+            <div class="toolbar-spacer"></div>
+            <button class="toolbar-send-btn" title="发送" aria-label="发送消息">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <p class="ai-input-hint" data-component="输入提示" data-od-id="input-hint">试试用自然语言描述你的需求，或 <button class="ai-input-hint-btn">探索更多实践方式 &gt;</button></p>
+
+      <section class="template-section" data-component="模板推荐卡片" data-od-id="template-cards">
+        <div class="template-section-title">推荐模板</div>
+        <div class="template-grid">
+
+          <article class="template-card" onclick="openCardDetail(0)" data-component="模板卡片-定价对比" data-od-id="card-pricing" tabindex="0" aria-label="模板：产品定价对比页">
+            <div class="template-card-preview">
+              <svg viewBox="0 0 320 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="320" height="200" fill="#0d0d1a"/>
+                <rect x="20" y="20" width="84" height="160" rx="6" fill="#1c1c36" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+                <rect x="32" y="36" width="60" height="6" rx="3" fill="#4e516b"/>
+                <rect x="32" y="52" width="40" height="10" rx="3" fill="#a29bfe"/>
+                <rect x="32" y="72" width="60" height="4" rx="2" fill="rgba(255,255,255,0.07)"/>
+                <rect x="32" y="82" width="60" height="4" rx="2" fill="rgba(255,255,255,0.07)"/>
+                <rect x="32" y="92" width="60" height="4" rx="2" fill="rgba(255,255,255,0.07)"/>
+                <rect x="32" y="110" width="60" height="20" rx="4" fill="#6c5ce7"/>
+                <rect x="118" y="20" width="84" height="160" rx="6" fill="#1c1c36" stroke="rgba(108,92,231,0.3)" stroke-width="1"/>
+                <rect x="130" y="32" width="60" height="6" rx="3" fill="#6c5ce7"/>
+                <rect x="130" y="48" width="40" height="10" rx="3" fill="#f0f1f5"/>
+                <rect x="130" y="68" width="60" height="4" rx="2" fill="rgba(255,255,255,0.07)"/>
+                <rect x="130" y="78" width="60" height="4" rx="2" fill="rgba(255,255,255,0.07)"/>
+                <rect x="130" y="88" width="60" height="4" rx="2" fill="rgba(255,255,255,0.07)"/>
+                <rect x="130" y="98" width="60" height="4" rx="2" fill="rgba(255,255,255,0.07)"/>
+                <rect x="130" y="116" width="60" height="20" rx="4" fill="#6c5ce7"/>
+                <rect x="216" y="20" width="84" height="160" rx="6" fill="#1c1c36" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+                <rect x="228" y="36" width="60" height="6" rx="3" fill="#4e516b"/>
+                <rect x="228" y="52" width="40" height="10" rx="3" fill="#a29bfe"/>
+                <rect x="228" y="72" width="60" height="4" rx="2" fill="rgba(255,255,255,0.07)"/>
+                <rect x="228" y="82" width="60" height="4" rx="2" fill="rgba(255,255,255,0.07)"/>
+                <rect x="228" y="92" width="60" height="4" rx="2" fill="rgba(255,255,255,0.07)"/>
+                <rect x="228" y="110" width="60" height="20" rx="4" fill="rgba(255,255,255,0.06)"/>
+              </svg>
+            </div>
+            <div class="template-card-body">
+              <div class="template-card-title">产品定价对比页</div>
+              <div class="template-card-desc">三栏定价方案，含高亮推荐套餐</div>
+              <span class="template-card-tag">网站设计</span>
+            </div>
+          </article>
+
+          <article class="template-card" onclick="openCardDetail(1)" data-component="模板卡片-品牌海报" data-od-id="card-poster" tabindex="0" aria-label="模板：品牌活动宣传海报">
+            <div class="template-card-preview">
+              <svg viewBox="0 0 320 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="320" height="200" fill="#0d0d1a"/>
+                <rect x="60" y="20" width="200" height="160" rx="8" fill="#14142a" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+                <text x="160" y="85" text-anchor="middle" fill="#f0f1f5" font-family="Inter, sans-serif" font-size="22" font-weight="600" letter-spacing="-0.5">Code the</text>
+                <text x="160" y="115" text-anchor="middle" fill="#6c5ce7" font-family="Inter, sans-serif" font-size="22" font-weight="600" letter-spacing="-0.5">future.</text>
+                <rect x="110" y="135" width="100" height="24" rx="12" fill="rgba(108,92,231,0.15)" stroke="rgba(108,92,231,0.3)" stroke-width="1"/>
+                <text x="160" y="151" text-anchor="middle" fill="#a29bfe" font-family="Inter, sans-serif" font-size="10" font-weight="500">2026 Developer Summit</text>
+                <circle cx="85" cy="45" r="12" fill="rgba(108,92,231,0.1)" stroke="rgba(108,92,231,0.2)" stroke-width="1"/>
+                <circle cx="235" cy="155" r="8" fill="rgba(162,155,254,0.08)" stroke="rgba(162,155,254,0.15)" stroke-width="1"/>
+              </svg>
+            </div>
+            <div class="template-card-body">
+              <div class="template-card-title">品牌活动宣传海报</div>
+              <div class="template-card-desc">科技感活动主题，支持自定义文案</div>
+              <span class="template-card-tag">视觉海报</span>
+            </div>
+          </article>
+
+          <article class="template-card" onclick="openCardDetail(2)" data-component="模板卡片-设计系统" data-od-id="card-design-system" tabindex="0" aria-label="模板：AI 产品设计系统交稿站">
+            <div class="template-card-preview">
+              <svg viewBox="0 0 320 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="320" height="200" fill="#0d0d1a"/>
+                <rect x="20" y="18" width="64" height="36" rx="5" fill="#1c1c36" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+                <rect x="28" y="26" width="30" height="5" rx="2.5" fill="#6c5ce7"/>
+                <rect x="28" y="38" width="48" height="3" rx="1.5" fill="rgba(255,255,255,0.07)"/>
+                <rect x="92" y="18" width="64" height="36" rx="5" fill="#1c1c36" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+                <circle cx="108" cy="36" r="8" fill="rgba(108,92,231,0.2)" stroke="rgba(108,92,231,0.4)" stroke-width="1"/>
+                <rect x="120" y="30" width="28" height="3" rx="1.5" fill="rgba(255,255,255,0.1)"/>
+                <rect x="120" y="38" width="20" height="3" rx="1.5" fill="rgba(255,255,255,0.06)"/>
+                <rect x="164" y="18" width="64" height="36" rx="5" fill="#1c1c36" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+                <rect x="172" y="26" width="48" height="8" rx="4" fill="rgba(108,92,231,0.15)"/>
+                <rect x="172" y="40" width="30" height="6" rx="3" fill="#6c5ce7"/>
+                <rect x="236" y="18" width="64" height="36" rx="5" fill="#1c1c36" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+                <rect x="244" y="26" width="20" height="20" rx="4" fill="rgba(162,155,254,0.15)" stroke="rgba(162,155,254,0.3)" stroke-width="1"/>
+                <rect x="270" y="28" width="22" height="3" rx="1.5" fill="rgba(255,255,255,0.1)"/>
+                <rect x="270" y="36" width="16" height="3" rx="1.5" fill="rgba(255,255,255,0.06)"/>
+                <rect x="20" y="64" width="136" height="50" rx="6" fill="#1c1c36" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+                <rect x="30" y="74" width="60" height="5" rx="2.5" fill="#f0f1f5" opacity="0.3"/>
+                <rect x="30" y="86" width="116" height="3" rx="1.5" fill="rgba(255,255,255,0.06)"/>
+                <rect x="30" y="94" width="80" height="3" rx="1.5" fill="rgba(255,255,255,0.06)"/>
+                <rect x="30" y="102" width="40" height="6" rx="3" fill="#6c5ce7"/>
+                <rect x="164" y="64" width="136" height="50" rx="6" fill="#1c1c36" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+                <rect x="174" y="74" width="50" height="30" rx="4" fill="rgba(108,92,231,0.08)"/>
+                <polyline points="180,98 192,84 204,92 216,80" stroke="#6c5ce7" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                <rect x="232" y="76" width="58" height="3" rx="1.5" fill="rgba(255,255,255,0.1)"/>
+                <rect x="232" y="86" width="40" height="3" rx="1.5" fill="rgba(255,255,255,0.06)"/>
+                <rect x="232" y="96" width="48" height="3" rx="1.5" fill="rgba(255,255,255,0.06)"/>
+                <rect x="20" y="124" width="280" height="56" rx="6" fill="#1c1c36" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+                <circle cx="48" cy="152" r="14" fill="rgba(108,92,231,0.12)" stroke="rgba(108,92,231,0.25)" stroke-width="1"/>
+                <rect x="72" y="140" width="100" height="5" rx="2.5" fill="rgba(255,255,255,0.12)"/>
+                <rect x="72" y="152" width="160" height="3" rx="1.5" fill="rgba(255,255,255,0.06)"/>
+                <rect x="72" y="160" width="120" height="3" rx="1.5" fill="rgba(255,255,255,0.06)"/>
+                <rect x="240" y="142" width="48" height="20" rx="4" fill="rgba(108,92,231,0.15)" stroke="rgba(108,92,231,0.3)" stroke-width="1"/>
+              </svg>
+            </div>
+            <div class="template-card-body">
+              <div class="template-card-title">AI 产品设计系统交稿站</div>
+              <div class="template-card-desc">完整组件库与设计规范交付</div>
+              <span class="template-card-tag">设计系统</span>
+            </div>
+          </article>
+
+        </div>
+      </section>
+    </div>
+
+    <!-- ===== Projects Page ===== -->
+    <div class="page" id="page-projects" data-component="项目详情页" data-od-id="projects-page">
+      <header class="projects-header" data-component="项目页头部" data-od-id="projects-header">
+        <h2 class="projects-title">项目</h2>
+        <div class="projects-actions">
+          <div class="projects-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <label for="project-search" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">搜索项目</label>
+            <input id="project-search" type="text" placeholder="搜索项目..." aria-label="搜索项目" />
+          </div>
+          <button class="btn-new-task" style="width:auto;padding:6px 14px;" aria-label="新建项目">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:14px;height:14px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            新建项目
+          </button>
+        </div>
+      </header>
+
+      <section class="projects-grid" data-component="项目卡片网格" data-od-id="projects-grid" aria-label="项目列表">
+        <article class="project-card" data-component="项目卡片-品牌官网" data-od-id="project-brand">
+          <div class="project-card-top">
+            <div class="project-card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+            </div>
+            <span class="project-card-status active">进行中</span>
+          </div>
+          <div class="project-card-name">品牌官网重设计</div>
+          <div class="project-card-desc">基于新版设计系统重构官网全部页面，统一视觉语言和交互规范</div>
+          <div class="project-card-footer">
+            <span class="project-card-meta">更新于 3 天前 · 12 个任务</span>
+            <div class="project-card-members">
+              <div class="project-card-member" style="background:var(--illus-avatar-member-l, #2d2d5a);">L</div>
+              <div class="project-card-member" style="background:var(--illus-avatar-member-k, #3a2a4a);">K</div>
+              <div class="project-card-member" style="background:var(--illus-avatar-member-m, #2a3a4a);">M</div>
+            </div>
+          </div>
+        </article>
+
+        <article class="project-card" data-component="项目卡片-移动端" data-od-id="project-mobile">
+          <div class="project-card-top">
+            <div class="project-card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>
+            </div>
+            <span class="project-card-status active">进行中</span>
+          </div>
+          <div class="project-card-name">移动端交互原型</div>
+          <div class="project-card-desc">用户注册与核心操作流程的手势交互原型设计，含可用性测试方案</div>
+          <div class="project-card-footer">
+            <span class="project-card-meta">更新于 7 天前 · 8 个任务</span>
+            <div class="project-card-members">
+              <div class="project-card-member" style="background:var(--illus-avatar-member-m, #2a3a4a);">W</div>
+              <div class="project-card-member" style="background:var(--illus-avatar-member-k, #3a2a4a);">Z</div>
+            </div>
+          </div>
+        </article>
+
+        <article class="project-card" data-component="项目卡片-仪表盘" data-od-id="project-dashboard">
+          <div class="project-card-top">
+            <div class="project-card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+            </div>
+            <span class="project-card-status completed">已完成</span>
+          </div>
+          <div class="project-card-name">数据仪表盘 v2</div>
+          <div class="project-card-desc">图表组件规范化、暗色主题适配及数据可视化交互优化</div>
+          <div class="project-card-footer">
+            <span class="project-card-meta">更新于 12 天前 · 15 个任务</span>
+            <div class="project-card-members">
+              <div class="project-card-member" style="background:var(--illus-avatar-member-l, #2d2d5a);">L</div>
+              <div class="project-card-member" style="background:var(--illus-avatar-member-h, #3a3a2a);">H</div>
+              <div class="project-card-member" style="background:var(--illus-avatar-member-y, #2a3a4a);">Y</div>
+              <div class="project-card-member" style="background:var(--illus-avatar-member-plus, #3a2a3a);">+2</div>
+            </div>
+          </div>
+        </article>
+
+        <article class="project-card" data-component="项目卡片-自动化测试" data-od-id="project-testing">
+          <div class="project-card-top">
+            <div class="project-card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            </div>
+            <span class="project-card-status paused">已暂停</span>
+          </div>
+          <div class="project-card-name">设计工具自动化测试</div>
+          <div class="project-card-desc">搭建 E2E 自动化测试框架，覆盖核心设计协作流程的回归测试</div>
+          <div class="project-card-footer">
+            <span class="project-card-meta">更新于 20 天前 · 6 个任务</span>
+            <div class="project-card-members">
+              <div class="project-card-member" style="background:var(--illus-avatar-member-r, #2a3a4a);">R</div>
+            </div>
+          </div>
+        </article>
+      </section>
+    </div>
+
+  </main>
+</div>
+
+<!-- ===== Card Detail Overlay ===== -->
+<div class="template-card-overlay" id="card-overlay" onclick="closeCardDetail(event)" data-component="模板详情浮层" data-od-id="card-overlay" role="dialog" aria-modal="true" aria-label="模板详情">
+  <div class="template-card-detail" onclick="event.stopPropagation()">
+    <div class="template-detail-header">
+      <h3 class="template-detail-title" id="detail-title"></h3>
+      <button class="template-detail-close" onclick="closeCardDetail()" aria-label="关闭详情">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="template-detail-preview" id="detail-preview"></div>
+    <div class="template-detail-body">
+      <p class="template-detail-desc" id="detail-desc"></p>
+      <div class="template-detail-actions">
+        <button class="detail-btn-primary">使用此模板</button>
+        <button class="detail-btn-ghost">预览效果</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchPage(pageId, navEl) {
+  document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active', 'page-fade-in'); });
+  var target = document.getElementById('page-' + pageId);
+  if (target) { target.classList.add('active'); requestAnimationFrame(function() { target.classList.add('page-fade-in'); }); }
+  document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+  if (navEl) navEl.classList.add('active');
+}
+function switchTab(el) {
+  document.querySelectorAll('.tab-item').forEach(function(t) { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+  el.classList.add('active'); el.setAttribute('aria-selected', 'true');
+}
+document.querySelectorAll('.category-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.category-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+  });
+});
+var cardDetails = [
+  { title: '产品定价对比页', desc: '一个精心设计的三栏定价对比页面模板。中间套餐高亮显示为推荐方案，包含价格展示、功能列表对比和行动号召按钮。适用于 SaaS 产品、订阅服务和会员方案的定价展示，支持暗色和亮色主题切换。' },
+  { title: '品牌活动宣传海报', desc: '以「Code the future」为主题的科技感活动海报模板。采用深色背景配合品牌紫蓝色调，营造未来感与科技氛围。适用于开发者大会、技术沙龙、品牌发布会等场景，支持自定义主标题、副标题和活动信息。' },
+  { title: 'AI 产品设计系统交稿站', desc: '一套完整的设计系统交付模板，包含色彩体系、字体规范、间距系统、组件库和使用指南。适用于团队协作中的设计规范统一，支持从设计工具到前端开发的无缝衔接，附带组件文档和代码片段。' }
+];
+function openCardDetail(index) {
+  var detail = cardDetails[index];
+  var overlay = document.getElementById('card-overlay');
+  document.getElementById('detail-title').textContent = detail.title;
+  document.getElementById('detail-desc').textContent = detail.desc;
+  var card = document.querySelectorAll('.template-card')[index];
+  var previewSvg = card.querySelector('.template-card-preview').innerHTML;
+  document.getElementById('detail-preview').innerHTML = previewSvg;
+  overlay.classList.add('visible');
+  document.body.style.overflow = 'hidden';
+}
+function closeCardDetail(e) {
+  if (e && e.target !== e.currentTarget) return;
+  document.getElementById('card-overlay').classList.remove('visible');
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeCardDetail(); });
+</script>
+
+</body>
+</html>
