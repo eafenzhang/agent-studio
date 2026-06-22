@@ -12,47 +12,48 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with: { targets: x86_64-pc-windows-msvc }
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
-        with: { node-version: '20' }
-      - name: Install deps
-        run: |
-          cd agent-studio-react && npm ci
-          cd ../agent-studio-tauri && npm ci
-      - name: Build frontend
+        with:
+          node-version: '20'
+
+      - name: Install and build frontend
         working-directory: agent-studio-react
-        run: npm run build
-      - name: Placeholder sidecars
-        shell: pwsh
-        working-directory: agent-studio-tauri
         run: |
-          New-Item -ItemType Directory -Force -Path "src-tauri/binaries" | Out-Null
-          [byte[]]$b = @(0x4d, 0x5a)
-          Set-Content "src-tauri/binaries/aioncore-x86_64-pc-windows-msvc.exe" -Value $b -AsByteStream
-          Set-Content "src-tauri/binaries/aionrs-x86_64-pc-windows-msvc.exe" -Value $b -AsByteStream
+          npm ci
+          npm run build
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
       - name: Build Tauri
         working-directory: agent-studio-tauri
-        run: npm run tauri build
+        run: |
+          npm ci
+          npm run tauri build
+
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
           name: installer
           path: agent-studio-tauri/src-tauri/target/release/bundle/nsis/*.exe
 
-  bump-and-release:
+  release:
     needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: { token: ${{ secrets.GITHUB_TOKEN }}, fetch-depth: 0 }
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Bump version
         run: |
           VERSION=$(node -p "require('./agent-studio-react/package.json').version")
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+          MAJOR=${VERSION%%.*}; REST=${VERSION#*.}
+          MINOR=${REST%%.*}; PATCH=${REST#*.}
           NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
           for f in agent-studio-react/package.json agent-studio-tauri/package.json \
@@ -63,17 +64,18 @@ jobs:
 
       - name: Download installer
         uses: actions/download-artifact@v4
-        with: { name: installer }
+        with:
+          name: installer
 
-      - name: Commit, tag, release
+      - name: Commit, tag and release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          NEW_VERSION="${{ env.NEW_VERSION }}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "chore: bump v$(node -p "require('./agent-studio-react/package.json').version")"
+          git commit -m "chore: bump version"
           git tag "v$NEW_VERSION"
           git push origin master --tags
-          # Create GitHub Release
           gh release create "v$NEW_VERSION" *.exe --generate-notes
