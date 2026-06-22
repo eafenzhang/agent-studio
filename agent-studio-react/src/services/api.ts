@@ -100,6 +100,9 @@ export const systemApi = {
   createProvider: (body: Record<string, unknown>) =>
     request<ProviderItem>('/api/providers', { method: 'POST', body: JSON.stringify(body) }),
   deleteProvider: (id: string) => request<void>(`/api/providers/${id}`, { method: 'DELETE' }),
+  /** 更新 Provider */
+  updateProvider: (id: string, body: Record<string, unknown>) =>
+    request<ProviderItem>(`/api/providers/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   /** 测试 Provider 连接 */
   testConnection: (baseUrl: string, apiKey: string) =>
     request<{protocol:string}>('/api/providers/detect-protocol', {

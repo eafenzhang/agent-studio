@@ -60,6 +60,8 @@ const ProviderCard: React.FC<{ provider: any; onDelete: (id: string) => void; on
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
   const [fetching, setFetching] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ name: p.name, base_url: p.base_url, api_key: '', models: (p.models || []).join(',') });
 
   const handleTest = async () => {
     setTesting(true);
@@ -70,6 +72,24 @@ const ProviderCard: React.FC<{ provider: any; onDelete: (id: string) => void; on
       setTestResult(r ? `✅ 连接成功 (${r.protocol})` : '❌ 连接失败');
     } catch { setTestResult('❌ 连接异常'); }
     setTesting(false);
+  };
+
+  const handleEdit = async () => {
+    setEditing(true);
+    setEditForm({ name: p.name, base_url: p.base_url, api_key: '', models: (p.models || []).join(',') });
+  };
+
+  const handleSaveEdit = async () => {
+    try {
+      const { systemApi } = await import('../../services/api');
+      const body: Record<string, any> = { name: editForm.name, base_url: editForm.base_url };
+      if (editForm.api_key) body.api_key = editForm.api_key;
+      const models = editForm.models.split(',').map((s: string) => s.trim()).filter(Boolean);
+      if (models.length > 0) body.models = models;
+      await systemApi.updateProvider(p.id, body);
+      setEditing(false);
+      onRefresh();
+    } catch { setTestResult('❌ 保存失败'); }
   };
 
   const handleFetchModels = async () => {
@@ -102,6 +122,9 @@ const ProviderCard: React.FC<{ provider: any; onDelete: (id: string) => void; on
             {fetching ? '获取中...' : '刷新模型'}
           </button>
           <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, background: p.enabled ? 'rgba(108,77,255,0.08)' : 'var(--cb-tag-background)', color: p.enabled ? 'var(--cb-button-primary)' : 'var(--cb-text-secondary)' }}>{p.enabled ? '已启用' : '已停用'}</span>
+          <button onClick={handleEdit} disabled={editing} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cb-text-secondary)', padding: 2, fontSize: 11 }} title="编辑">
+            ✏️
+          </button>
           <button onClick={() => onDelete(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e74c3c', padding: 2 }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="14" height="14" strokeLinecap="round">
               <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
@@ -109,13 +132,28 @@ const ProviderCard: React.FC<{ provider: any; onDelete: (id: string) => void; on
           </button>
         </div>
       </div>
-      <div style={{ fontSize: 12, color: 'var(--cb-text-secondary)', marginBottom: 4, fontFamily: 'var(--cb-font-mono)', wordBreak: 'break-all' }}>{p.base_url}</div>
-      {testResult && <div style={{ fontSize: 11, marginBottom: 4, color: testResult.includes('✅') ? 'var(--cb-switch-active-bg)' : '#e65100' }}>{testResult}</div>}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-        {(p.models || []).map((m: string) => (
-          <span key={m} style={{ padding: '1px 6px', background: 'var(--cb-tag-background)', borderRadius: 4, fontSize: 11, color: 'var(--cb-text-secondary)' }}>{m}</span>
-        ))}
-      </div>
+      {editing ? (
+        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <input placeholder="名称" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} style={inputStyle} />
+          <input placeholder="Base URL" value={editForm.base_url} onChange={e => setEditForm({...editForm, base_url: e.target.value})} style={inputStyle} />
+          <input placeholder="API Key (留空不修改)" type="password" value={editForm.api_key} onChange={e => setEditForm({...editForm, api_key: e.target.value})} style={inputStyle} />
+          <input placeholder="模型列表（逗号分隔）" value={editForm.models} onChange={e => setEditForm({...editForm, models: e.target.value})} style={inputStyle} />
+          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+            <button onClick={() => setEditing(false)} style={{ padding: '3px 12px', borderRadius: 4, fontSize: 11, border: '1px solid var(--cb-border)', background: 'transparent', cursor: 'pointer' }}>取消</button>
+            <button onClick={handleSaveEdit} style={{ padding: '3px 12px', borderRadius: 4, fontSize: 11, border: 'none', background: 'var(--cb-button-primary)', color: '#fff', cursor: 'pointer' }}>保存</button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div style={{ fontSize: 12, color: 'var(--cb-text-secondary)', marginBottom: 4, fontFamily: 'var(--cb-font-mono)', wordBreak: 'break-all' }}>{p.base_url}</div>
+          {testResult && <div style={{ fontSize: 11, marginBottom: 4, color: testResult.includes('✅') ? 'var(--cb-switch-active-bg)' : '#e65100' }}>{testResult}</div>}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {(p.models || []).map((m: string) => (
+              <span key={m} style={{ padding: '1px 6px', background: 'var(--cb-tag-background)', borderRadius: 4, fontSize: 11, color: 'var(--cb-text-secondary)' }}>{m}</span>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 };
@@ -239,6 +277,61 @@ const ModelSettingsContent: React.FC = () => {
           ))}
         </div>
       )}
+    </div>
+  );
+};
+
+// ── 更新设置内容（从 GitHub Release API 加载）──
+const UpdateSettingsContent: React.FC = () => {
+  const [checking, setChecking] = useState(false);
+  const [result, setResult] = useState<{hasUpdate: boolean; version?: string; url?: string} | null>(null);
+  const [currentVersion] = useState('1.0.0');
+
+  const handleCheck = async () => {
+    setChecking(true);
+    setResult(null);
+    try {
+      const r = await fetch('https://api.github.com/repos/eafenzhang/agent-studio/releases/latest');
+      if (!r.ok) { setResult({hasUpdate: false}); setChecking(false); return; }
+      const data = await r.json();
+      const latest = (data.tag_name || '').replace(/^v/, '');
+      const hasUpdate = latest !== currentVersion;
+      setResult({hasUpdate, version: latest, url: data.html_url});
+    } catch { setResult({hasUpdate: false}); }
+    setChecking(false);
+  };
+
+  return (
+    <div>
+      <div style={{ textAlign: 'center', padding: '24px 0' }}>
+        <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>v{currentVersion}</div>
+        {result === null ? null : result.hasUpdate ? (
+          <div style={{ fontSize: 13, color: '#e65100', marginBottom: 16 }}>
+            发现新版本 v{result.version}
+          </div>
+        ) : (
+          <div style={{ fontSize: 13, color: 'var(--cb-switch-active-bg)', marginBottom: 16 }}>已是最新版本</div>
+        )}
+        {result?.url && (
+          <div style={{ marginBottom: 12 }}>
+            <a href={result.url} target="_blank" rel="noreferrer"
+              style={{ fontSize: 12, color: 'var(--cb-button-primary)' }}>
+              前往下载 v{result.version}
+            </a>
+          </div>
+        )}
+        <button onClick={handleCheck} disabled={checking}
+          style={{ padding: '8px 24px', background: 'var(--cb-button-primary)', color: '#fff', borderRadius: 6, fontSize: 13, fontWeight: 500, border: 'none', cursor: checking ? 'wait' : 'pointer', opacity: checking ? 0.7 : 1 }}>
+          {checking ? '检查中...' : '检查更新'}
+        </button>
+      </div>
+      <div style={{ marginTop: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--wb-color-text-disabled)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>版本信息</div>
+        <div style={{ fontSize: 12, color: 'var(--cb-text-secondary)', lineHeight: 2 }}>
+          GitHub: eafenzhang/agent-studio<br />
+          Release: github.com/eafenzhang/agent-studio/releases
+        </div>
+      </div>
     </div>
   );
 };
@@ -376,19 +469,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) =
 
             {/* Update Settings */}
             <div className={`settings-page${activePage === 'update' ? ' active' : ''}`}>
-              <div style={{ textAlign: 'center', padding: '24px 0' }}>
-                <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>v5.1.3</div>
-                <div style={{ fontSize: 13, color: 'var(--cb-switch-active-bg)', marginBottom: 16 }}>已是最新版本</div>
-                <button style={{ padding: '8px 24px', background: 'var(--cb-button-primary)', color: '#fff', borderRadius: 6, fontSize: 13, fontWeight: 500 }}>检查更新</button>
-              </div>
-              <div style={{ marginTop: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--wb-color-text-disabled)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>最近更新</div>
-                <div style={{ fontSize: 12, color: 'var(--cb-text-secondary)', lineHeight: 2 }}>
-                  - 新增 MCP 服务器管理<br />
-                  - 优化专家卡片加载<br />
-                  - 修复文件同步中断
-                </div>
-              </div>
+              <UpdateSettingsContent />
             </div>
           </div>
         </div>
