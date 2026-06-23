@@ -188,6 +188,15 @@ export const ConversationDetail: React.FC = () => {
           if (!mountedRef.current) return;
           useChatStore.getState().addMessage(msg);
           foundReply = true;
+          // 对齐模式自动检测：AI 建议创建任务时自动弹出窗口
+          const mode = useAppStore.getState().selectedMode;
+          if (mode === '对齐' && (msg.content.includes('📄') || msg.content.includes('固化为任务') || msg.content.includes('生成四份文档') || msg.content.includes('创建任务'))) {
+            setTimeout(() => {
+              const store = useTaskStore.getState();
+              const title = msg.content.split('\n')[0].replace(/^#+\s*/, '').slice(0, 40) || '对齐任务';
+              store.createTaskFromAlignment(title, msg.content.slice(0, 300), cid, msg.content);
+            }, 500);
+          }
           break;
         }
         if (foundReply) break;
