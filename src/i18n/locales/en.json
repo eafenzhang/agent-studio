@@ -1,0 +1,129 @@
+{
+  "app": {
+    "title": "Agent Studio",
+    "version": "v0.1.0"
+  },
+  "nav": {
+    "newTask": "New Task",
+    "assistant": "Assistant",
+    "projects": "Projects",
+    "experts": "Experts",
+    "tools": "Tools",
+    "artifacts": "Artifacts",
+    "settings": "Settings"
+  },
+  "home": {
+    "title": "New Task",
+    "subtitle": "Select an expert and tools to start your creative journey",
+    "inputPlaceholder": "Describe what you want to do...",
+    "category": {
+      "office": "Productivity",
+      "prototype": "Prototype",
+      "creative": "Creative"
+    },
+    "send": "Send",
+    "model": "Model",
+    "mode": "Mode",
+    "expert": "Expert",
+    "tool": "Tool",
+    "file": "File"
+  },
+  "chat": {
+    "loading": "Loading...",
+    "noMessages": "No messages",
+    "typeMessage": "Type a message...",
+    "regenerate": "Regenerate",
+    "copy": "Copy",
+    "delete": "Delete",
+    "edit": "Edit",
+    "confirmDelete": "Delete this message?",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "rename": "Rename",
+    "renamePrompt": "Enter new conversation name:",
+    "deleteConv": "Delete this conversation?"
+  },
+  "sidebar": {
+    "search": "Search conversations...",
+    "pinned": "Pinned",
+    "recent": "Recent",
+    "archived": "Archived",
+    "noConversations": "No conversations",
+    "newConversation": "New Conversation"
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "model": "Models",
+    "memory": "Memory",
+    "update": "Updates",
+    "theme": "Theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeAuto": "Auto",
+    "language": "Language",
+    "languageZh": "中文",
+    "languageEn": "English",
+    "save": "Save",
+    "saved": "Settings saved",
+    "saveFailed": "Save failed",
+    "addModel": "Add Model",
+    "editModel": "Edit Model",
+    "modelName": "Model Name",
+    "apiUrl": "API URL",
+    "apiKey": "API Key",
+    "platform": "Platform",
+    "protocol": "Protocol",
+    "deleteProvider": "Delete this provider?",
+    "fetchModels": "Fetch Models",
+    "testConnection": "Test",
+    "testSuccess": "Connection successful ✓",
+    "testFailed": "Connection failed",
+    "connectionTestFailed": "Connection test failed",
+    "modelListUpdated": "Model list updated",
+    "fetchFailed": "Fetch failed",
+    "providerDeleted": "Deleted",
+    "deleteFailed": "Delete failed"
+  },
+  "experts": {
+    "title": "Experts",
+    "all": "All",
+    "builtin": "Built-in",
+    "custom": "Custom",
+    "noData": "No expert data"
+  },
+  "tools": {
+    "title": "Tools",
+    "skill": "Skills",
+    "mcp": "MCP",
+    "noSkills": "No skills available",
+    "noMcp": "No MCP servers"
+  },
+  "artifacts": {
+    "title": "Artifacts",
+    "all": "All",
+    "code": "Code",
+    "document": "Document",
+    "image": "Image",
+    "noData": "Feature in development"
+  },
+  "projects": {
+    "title": "Projects",
+    "noData": "No projects"
+  },
+  "common": {
+    "loading": "Loading...",
+    "noData": "No data",
+    "error": "Something went wrong",
+    "retry": "Retry",
+    "networkError": "Network error",
+    "backendDisconnected": "Backend disconnected",
+    "featureInDev": "Feature in development"
+  },
+  "toast": {
+    "copied": "Copied",
+    "saved": "Saved",
+    "deleted": "Deleted",
+    "created": "Created"
+  }
+}

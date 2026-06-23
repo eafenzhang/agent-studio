@@ -1,0 +1,129 @@
+{
+  "app": {
+    "title": "Agent Studio",
+    "version": "v0.1.0"
+  },
+  "nav": {
+    "newTask": "新建任务",
+    "assistant": "助理",
+    "projects": "项目",
+    "experts": "专家",
+    "tools": "工具",
+    "artifacts": "产物",
+    "settings": "设置"
+  },
+  "home": {
+    "title": "新建任务",
+    "subtitle": "选择专家和工具，开始你的创作之旅",
+    "inputPlaceholder": "描述你想做的事情...",
+    "category": {
+      "office": "办公效率",
+      "prototype": "原型设计",
+      "creative": "创意内容"
+    },
+    "send": "发送",
+    "model": "模型",
+    "mode": "模式",
+    "expert": "专家",
+    "tool": "工具",
+    "file": "文件"
+  },
+  "chat": {
+    "loading": "加载中...",
+    "noMessages": "暂无消息",
+    "typeMessage": "输入消息...",
+    "regenerate": "重新生成",
+    "copy": "复制",
+    "delete": "删除",
+    "edit": "编辑",
+    "confirmDelete": "确定删除此消息？",
+    "cancel": "取消",
+    "confirm": "确定",
+    "rename": "重命名",
+    "renamePrompt": "请输入新的会话名称:",
+    "deleteConv": "确定要删除此会话吗？"
+  },
+  "sidebar": {
+    "search": "搜索会话...",
+    "pinned": "已置顶",
+    "recent": "最近",
+    "archived": "已归档",
+    "noConversations": "暂无对话",
+    "newConversation": "新建会话"
+  },
+  "settings": {
+    "title": "系统设置",
+    "general": "通用",
+    "model": "模型",
+    "memory": "记忆",
+    "update": "更新",
+    "theme": "主题",
+    "themeLight": "浅色",
+    "themeDark": "深色",
+    "themeAuto": "自动",
+    "language": "语言",
+    "languageZh": "中文",
+    "languageEn": "English",
+    "save": "保存",
+    "saved": "设置已保存",
+    "saveFailed": "保存失败",
+    "addModel": "添加模型",
+    "editModel": "编辑模型",
+    "modelName": "模型名称",
+    "apiUrl": "API 地址",
+    "apiKey": "API Key",
+    "platform": "平台",
+    "protocol": "协议",
+    "deleteProvider": "确定要删除此提供商吗？",
+    "fetchModels": "获取模型",
+    "testConnection": "测试",
+    "testSuccess": "连接成功 ✓",
+    "testFailed": "连接失败",
+    "connectionTestFailed": "连接测试失败",
+    "modelListUpdated": "模型列表已更新",
+    "fetchFailed": "获取失败",
+    "providerDeleted": "已删除",
+    "deleteFailed": "删除失败"
+  },
+  "experts": {
+    "title": "专家",
+    "all": "全部",
+    "builtin": "内置",
+    "custom": "自定义",
+    "noData": "暂无专家数据"
+  },
+  "tools": {
+    "title": "工具",
+    "skill": "技能",
+    "mcp": "MCP",
+    "noSkills": "暂无可用技能",
+    "noMcp": "暂无 MCP 服务器"
+  },
+  "artifacts": {
+    "title": "产物",
+    "all": "全部",
+    "code": "代码",
+    "document": "文档",
+    "image": "图片",
+    "noData": "功能开发中"
+  },
+  "projects": {
+    "title": "项目",
+    "noData": "暂无项目"
+  },
+  "common": {
+    "loading": "加载中...",
+    "noData": "暂无数据",
+    "error": "出错了",
+    "retry": "重试",
+    "networkError": "网络错误",
+    "backendDisconnected": "后端未连接",
+    "featureInDev": "功能开发中"
+  },
+  "toast": {
+    "copied": "已复制",
+    "saved": "已保存",
+    "deleted": "已删除",
+    "created": "已创建"
+  }
+}

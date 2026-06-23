@@ -1,0 +1,446 @@
+%% Agent Studio Desktop P2 — Class Diagram
+%% React Component Tree + State Management Architecture
+
+classDiagram
+    %% ===== Entry Point =====
+    class main_tsx {
+        <<entry>>
+        +render() void
+    }
+
+    %% ===== Providers =====
+    class Providers {
+        +QueryClientProvider
+        +ThemeProvider(MUI)
+        +I18nextProvider
+    }
+
+    %% ===== App Router =====
+    class App {
+        +BrowserRouter
+        +AppShell
+        +Routes
+    }
+
+    %% ===== Layout Components =====
+    class AppShell {
+        -sidebarCollapsed: boolean
+        -theme: ThemeMode
+        +render() JSX
+    }
+
+    class TopBar {
+        -title: string
+        -connectionStatus: ConnectionStatus
+    }
+
+    class TabBar {
+        -tabs: Tab[]
+        -activeIndex: number
+        +addTab() void
+        +closeTab(index) void
+        +activateTab(index) void
+    }
+
+    %% ===== Stores (Zustand) =====
+    class useAppStore {
+        -conversations: Conversation[]
+        -currentConversationId: string|null
+        -currentPage: PageId
+        -connectionStatus: ConnectionStatus
+        -sidebarCollapsed: boolean
+        -openTabs: Tab[]
+        -activeTabIndex: number
+        +set(field, value) void
+        +addTab(tab) void
+        +closeTab(index) void
+        +activateTab(index) void
+        +toggleSidebar() void
+    }
+
+    class useChatStore {
+        -streamBuffers: Map~string, string~
+        -isGenerating: boolean
+        -selectedModel: string|null
+        -selectedExpert: string|null
+        -selectedMode: Mode
+        +appendChunk(msgId, text) void
+        +flushBuffer(msgId) string
+        +setGenerating(val) void
+        +clearBuffer(msgId) void
+    }
+
+    class useThemeStore {
+        -theme: 'light'|'dark'|'auto'
+        +setTheme(theme) void
+        +toggleTheme() void
+        +isDark() boolean
+    }
+
+    %% ===== React Query Hooks =====
+    class useConversations {
+        +useConversationsQuery() UseQueryResult
+        +useConversationQuery(id) UseQueryResult
+        +useCreateConversation() UseMutationResult
+        +useDeleteConversation() UseMutationResult
+        +useRenameConversation() UseMutationResult
+    }
+
+    class useMessages {
+        +useMessagesQuery(convId) UseQueryResult
+        +useSendMessage() UseMutationResult
+        +useCancelConversation() UseMutationResult
+    }
+
+    class useAgents {
+        +useAgentsQuery() UseQueryResult
+        +useRefreshAgents() UseMutationResult
+    }
+
+    class useProviders {
+        +useProvidersQuery() UseQueryResult
+        +useCreateProvider() UseMutationResult
+        +useUpdateProvider() UseMutationResult
+        +useDeleteProvider() UseMutationResult
+    }
+
+    class useSettings {
+        +useSettingsQuery() UseQueryResult
+        +useUpdateSettings() UseMutationResult
+    }
+
+    class useWebSocket {
+        -wsClient: WebSocketClient
+        -isConnected: boolean
+        +connect() void
+        +disconnect() void
+        +on(event, callback) Unsubscribe
+        +send(name, data) boolean
+    }
+
+    class useChatStream {
+        -bufferRef: MutableRefObject~Map~
+        -rafId: number|null
+        +onChunk(msgId, text) void
+        +flush() void
+        +reset() void
+    }
+
+    %% ===== Page Components =====
+    class HomePage {
+        +render() JSX
+    }
+    class AssistantChips {
+        -assistants: Assistant[]
+        -selectedId: string|null
+        +onSelect(id) void
+    }
+
+    class ChatPage {
+        -conversationId: string
+        -messages: Message[]
+        +render() JSX
+    }
+    class MessageList {
+        -messages: Message[]
+        -streamingMap: Map
+        +render() JSX
+    }
+    class MessageBubble {
+        -message: Message
+        -isStreaming: boolean
+        +onCopy() void
+        +onDelete() void
+        +onRegenerate() void
+    }
+    class StreamingText {
+        -contentRef: MutableRefObject
+        -content: string
+        +animateIn() void
+    }
+    class MessageInput {
+        -text: string
+        -isDisabled: boolean
+        +onSend(text, options) void
+        +onAttach(files) void
+    }
+    class ToolCallCard {
+        -toolCall: ToolCall
+        +render() JSX
+    }
+    class TaskProgress {
+        -steps: TaskStep[]
+        +render() JSX
+    }
+
+    class Sidebar {
+        -conversations: Conversation[]
+        -filter: string
+        +render() JSX
+    }
+    class ConversationList {
+        -items: Conversation[]
+        -pinned: string[]
+        +onSelect(id) void
+        +onPin(id) void
+        +onArchive(id) void
+    }
+    class SearchBar {
+        -query: string
+        +onSearch(q) void
+    }
+
+    class SettingsPage {
+        +render() JSX
+    }
+    class GeneralSettings {
+        -theme: ThemeMode
+        -language: string
+    }
+    class ModelSettings {
+        -providers: Provider[]
+    }
+    class MemorySettings {
+        -memories: Memory[]
+    }
+    class UpdateSettings {
+        -version: string
+        -updateAvailable: boolean
+    }
+
+    class ExpertsPage {
+        -agents: Agent[]
+        -filter: string
+    }
+    class ExpertCard {
+        -agent: Agent
+    }
+
+    class ToolsPage {
+        +render() JSX
+    }
+    class SkillList {
+        -skills: Skill[]
+    }
+    class McpServerList {
+        -servers: McpServer[]
+    }
+
+    class ArtifactsPage {
+        -artifacts: Artifact[]
+        -filter: string
+    }
+
+    class ProjectsPage {
+        +render() JSX
+    }
+
+    %% ===== UI Components =====
+    class Toast {
+        -message: string
+        -type: 'info'|'success'|'error'
+        -visible: boolean
+        +show(msg, type) void
+        +hide() void
+    }
+
+    class Skeleton {
+        -width: string
+        -height: string
+        -variant: 'text'|'rect'|'circle'
+    }
+
+    class Modal {
+        -open: boolean
+        -title: string
+        -children: ReactNode
+        +onClose() void
+    }
+
+    class ThemeToggle {
+        -theme: ThemeMode
+        +onToggle() void
+    }
+
+    %% ===== API Layer (lib) =====
+    class api_ts {
+        +healthCheck() Promise~boolean~
+        +getConversations(params) Promise~Conversation[]~
+        +createConversation(data) Promise~Conversation~
+        +getConversation(id) Promise~Conversation~
+        +deleteConversation(id) Promise~void~
+        +getMessages(convId, params) Promise~Message[]~
+        +sendMessage(convId, data) Promise~void~
+        +cancelConversation(id) Promise~void~
+        +getAgents() Promise~Agent[]~
+        +getProviders() Promise~Provider[]~
+        +createProvider(data) Promise~Provider~
+        +updateProvider(id, data) Promise~void~
+        +deleteProvider(id) Promise~void~
+        +getSettings() Promise~Settings~
+        +updateSettings(data) Promise~void~
+        +getSkills() Promise~Skill[]~
+        +getArtifacts(convId) Promise~Artifact[]~
+        +getMemory() Promise~Memory[]~
+    }
+
+    class websocket_ts {
+        -ws: WebSocket
+        -listeners: Map
+        -reconnectAttempts: number
+        +connect() void
+        +disconnect() void
+        +send(name, data) boolean
+        +on(event, callback) Unsubscribe
+        +emit(event, data) void
+    }
+
+    %% ===== Data Models =====
+    class Conversation {
+        +id: string
+        +name: string
+        +title: string
+        +updatedAt: string
+        +createdAt: string
+        +metadata?: Record~string, any~
+    }
+
+    class Message {
+        +id: string
+        +role: 'user'|'assistant'
+        +content: string
+        +createdAt: string
+        +toolCalls?: ToolCall[]
+        +taskSteps?: TaskStep[]
+    }
+
+    class ToolCall {
+        +id: string
+        +name: string
+        +arguments: any
+        +result?: any
+        +status: 'pending'|'in_progress'|'success'|'error'
+    }
+
+    class TaskStep {
+        +id: string
+        +title: string
+        +status: 'pending'|'in_progress'|'completed'|'error'
+    }
+
+    class Agent {
+        +id: string
+        +name: string
+        +status: string
+        +type?: string
+    }
+
+    class Provider {
+        +id: string
+        +name: string
+        +models: string[]
+        +enabled?: boolean
+    }
+
+    class Artifact {
+        +id: string
+        +name: string
+        +type: 'html'|'code'|'pdf'|'other'
+        +createdAt: string
+    }
+
+    class Skill {
+        +id: string
+        +name: string
+        +description?: string
+        +enabled?: boolean
+    }
+
+    class McpServer {
+        +id: string
+        +name: string
+        +connected?: boolean
+        +tools?: any[]
+    }
+
+    class Memory {
+        +id: string
+        +content: string
+        +createdAt: string
+        +category?: string
+    }
+
+    %% ===== Relationships =====
+
+    %% Composition: App → Layout
+    App *-- AppShell : contains
+    AppShell *-- TopBar : contains
+    AppShell *-- TabBar : contains
+    App *-- Sidebar : contains
+
+    %% Composition: Pages
+    App --> HomePage : routes
+    App --> ChatPage : routes
+    App --> SettingsPage : routes
+    App --> ExpertsPage : routes
+    App --> ToolsPage : routes
+    App --> ArtifactsPage : routes
+    App --> ProjectsPage : routes
+
+    %% Page composition
+    HomePage *-- AssistantChips : contains
+    ChatPage *-- MessageList : contains
+    ChatPage *-- MessageInput : contains
+    MessageList *-- MessageBubble : contains
+    MessageBubble *-- ToolCallCard : contains (0..*)
+    MessageBubble *-- TaskProgress : contains (0..*)
+    MessageBubble *-- StreamingText : contains (streaming)
+    Sidebar *-- ConversationList : contains
+    Sidebar *-- SearchBar : contains
+    SettingsPage *-- GeneralSettings : contains
+    SettingsPage *-- ModelSettings : contains
+    SettingsPage *-- MemorySettings : contains
+    SettingsPage *-- UpdateSettings : contains
+    ExpertsPage *-- ExpertCard : contains (0..*)
+    ToolsPage *-- SkillList : contains
+    ToolsPage *-- McpServerList : contains
+
+    %% Store consumption (dependency)
+    AppShell --> useAppStore : reads
+    AppShell --> useThemeStore : reads
+    Sidebar --> useAppStore : reads
+    ChatPage --> useChatStore : reads/writes
+    ChatPage --> useAppStore : reads
+    MessageInput --> useChatStore : reads
+    StreamingText --> useChatStream : reads
+    ThemeToggle --> useThemeStore : writes
+
+    %% React Query consumption
+    HomePage --> useAgents : queries
+    ChatPage --> useMessages : queries/mutates
+    ChatPage --> useConversations : mutates
+    Sidebar --> useConversations : queries
+    SettingsPage --> useProviders : queries/mutates
+    SettingsPage --> useSettings : queries/mutates
+    ExpertsPage --> useAgents : queries
+    ToolsPage --> useAgents : queries
+    ArtifactsPage --> useConversations : queries
+
+    %% API layer
+    useConversations --> api_ts : calls
+    useMessages --> api_ts : calls
+    useAgents --> api_ts : calls
+    useProviders --> api_ts : calls
+    useSettings --> api_ts : calls
+    useChatStream --> websocket_ts : subscribes
+    useWebSocket --> websocket_ts : wraps
+
+    %% Data models (used everywhere)
+    api_ts ..> Conversation : returns
+    api_ts ..> Message : returns
+    api_ts ..> Agent : returns
+    api_ts ..> Provider : returns
+    api_ts ..> Artifact : returns
+    api_ts ..> Skill : returns
+    api_ts ..> Memory : returns
+    websocket_ts ..> Message : emits
