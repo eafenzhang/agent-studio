@@ -4,6 +4,9 @@ on:
   push:
     tags: ['v*']
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -26,7 +29,7 @@ jobs:
         with:
           targets: x86_64-pc-windows-msvc
 
-      - name: Cache Rust dependencies
+      - name: Cache Cargo
         uses: actions/cache@v4
         with:
           path: |
@@ -38,30 +41,53 @@ jobs:
       - name: Build Tauri
         run: npm run tauri build
 
+      - name: List build artifacts
+        shell: bash
+        run: |
+          echo "=== NSIS files ==="
+          ls -la src-tauri/target/release/bundle/nsis/ || echo "no nsis dir"
+          echo "=== MSI files ==="
+          ls -la src-tauri/target/release/bundle/msi/ || echo "no msi dir"
+
       - name: Create Release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: Agent Studio ${{ github.ref_name }}
-          body: |
-            ## Agent Studio ${{ github.ref_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -e
+          TAG="${GITHUB_REF_NAME}"
+          REPO="${{ github.repository }}"
+          echo "Creating release for $REPO tag: $TAG"
 
-            ### ✨ 新功能
-            - 任务中心 — 创建、管理、追踪 AI 任务
-            - 增强聊天渲染 — 代码块复制、推理链展示
-            - 会话模式定义 — 行动 / 规划 / 自主
-            - Agent 多轮自思考支持（thinking/tips/plan 事件）
+          # Find installer
+          INSTALLER=$(ls src-tauri/target/release/bundle/nsis/*.exe 2>/dev/null | head -1)
+          if [ -z "$INSTALLER" ]; then
+            INSTALLER=$(ls src-tauri/target/release/bundle/msi/*.msi 2>/dev/null | head -1)
+            echo "Using MSI: $INSTALLER"
+          else
+            echo "Using NSIS: $INSTALLER"
+          fi
 
-            ### 🔧 架构改进
-            - 会话模块重构 — 统一 WS 协议、消除数据双写
-            - WebSocket 事件对齐后端真实 message.stream 协议
-            - 共享 ChatInputPanel 组件（消除 400 行重复代码）
-            - ThinkingBlock 组件展示 Agent 推理链
+          # Create release and upload assets
+          gh release create "$TAG" \
+            --repo "$REPO" \
+            "$INSTALLER" \
+            --title "Agent Studio $TAG" \
+            --notes "## Agent Studio $TAG
 
-            ### 🐛 Bug 修复
-            - TaskProgressPanel 空状态/假步骤
-            - 删除 300+ 行死代码（chat-service.js / ChatInput.tsx）
-          files: ./src-tauri/target/release/bundle/nsis/*.exe
-          fail_on_unmatched_files: true
+### ✨ 新功能
+- 任务中心 — 创建、管理、追踪 AI 任务
+- 增强聊天渲染 — 代码块复制、推理链展示
+- 会话模式定义 — 行动 / 规划 / 自主
+- Agent 多轮自思考支持（thinking/tips/plan 事件）
+
+### 🔧 架构改进
+- 会话模块重构 — 统一 WS 协议、消除数据双写
+- WebSocket 事件对齐后端真实 message.stream 协议
+- 共享 ChatInputPanel 组件（消除 400 行重复代码）
+- ThinkingBlock 组件展示 Agent 推理链
+
+### 🐛 Bug 修复
+- TaskProgressPanel 空状态/假步骤
+- 删除 300+ 行死代码（chat-service.js / ChatInput.tsx）" \
+            --verify-tag
