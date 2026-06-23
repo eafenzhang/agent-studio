@@ -1,4 +1,6 @@
-import React, { useMemo, useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface StreamingTextProps {
   content: string;
@@ -8,8 +10,8 @@ interface StreamingTextProps {
 /**
  * 流式文本渲染组件
  *
- * 将纯文本按换行分割，流式追加时自动滚动到底部。
- * 后续可扩展支持 markdown 渲染（集成 react-markdown / rehype-highlight）。
+ * 支持 Markdown 渲染（GFM 表格、代码块等）。
+ * 流式追加时自动滚动到底部。
  */
 export const StreamingText: React.FC<StreamingTextProps> = ({
   content,
@@ -23,19 +25,32 @@ export const StreamingText: React.FC<StreamingTextProps> = ({
     }
   }, [content, isStreaming]);
 
-  const lines = useMemo(() => content.split('\n'), [content]);
+  if (!content) return null;
 
   return (
     <div className="streaming-text">
-      {lines.map((line, i) => (
-        <React.Fragment key={i}>
-          {line}
-          {i < lines.length - 1 && <br />}
-        </React.Fragment>
-      ))}
-      {isStreaming && (
-        <span className="streaming-cursor">▊</span>
-      )}
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          code({ className, children, ...props }) {
+            const isInline = !className;
+            if (isInline) {
+              return <code className="inline-code" {...props}>{children}</code>;
+            }
+            return (
+              <pre className="code-block">
+                <code className={className} {...props}>{children}</code>
+              </pre>
+            );
+          },
+          table({ children }) {
+            return <div className="table-wrapper"><table>{children}</table></div>;
+          },
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+      {isStreaming && <span className="streaming-cursor">▊</span>}
       <div ref={bottomRef} />
     </div>
   );

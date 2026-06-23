@@ -3,7 +3,9 @@ import { useChatStore } from '../../stores/chatStore';
 import { useAppStore } from '../../stores/appStore';
 import { ChatInput } from '../ui/ChatInput';
 import { StreamingText } from '../ui/StreamingText';
+import { TaskCard } from '../ui/TaskCard';
 import { conversationApi } from '../../services/api';
+import { useTaskStore } from '../../stores/taskStore';
 
 // ── 将后端消息映射为前端 Message ──
 function mapMessages(items: any[], cid: string) {
@@ -27,6 +29,7 @@ export const ConversationDetail: React.FC = () => {
   const lastStreaming = useChatStore((s) => s.streamingContent);
   const conversationTitle = useAppStore((s) => s.conversationTitle);
   const conversationId = useAppStore((s) => s.conversationId);
+  const tasks = useTaskStore((s) => s.tasks);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [convId, setConvId] = useState<string | null>(null);
@@ -207,15 +210,29 @@ export const ConversationDetail: React.FC = () => {
           <div style={{ padding: 24, textAlign: 'center', color: 'var(--wb-color-text-disabled)' }}>发送第一条消息开始对话</div>
         ) : (
           lastMsgs.map((msg) => (
-            <div key={msg.id} className={`msg-row ${msg.role}`}>
-              <div className={`msg-avatar ${msg.role === 'user' ? 'human' : msg.role === 'assistant' ? 'bot' : 'system'}`}>
-                {msg.role === 'user' ? 'U' : msg.role === 'assistant' ? 'A' : '!'}
+            <React.Fragment key={msg.id}>
+              <div className={`msg-row ${msg.role}`}>
+                <div className={`msg-avatar ${msg.role === 'user' ? 'human' : msg.role === 'assistant' ? 'bot' : 'system'}`}>
+                  {msg.role === 'user' ? 'U' : msg.role === 'assistant' ? 'A' : '!'}
+                </div>
+                <div>
+                  <div className={`msg-bubble ${msg.role}`}><StreamingText content={msg.content} /></div>
+                  <div className="msg-time" style={msg.role === 'user' ? { textAlign: 'right' } : undefined}>{msg.time}</div>
+                  {/* AI 回复后显示任务创建入口 */}
+                  {msg.role === 'assistant' && msg.content.length > 20 && (
+                    <div style={{ marginTop: 4 }}>
+                      <TaskSuggestButton content={msg.content} msgId={msg.id} convId={convId || ''} />
+                    </div>
+                  )}
+                </div>
               </div>
-              <div>
-                <div className={`msg-bubble ${msg.role}`}><StreamingText content={msg.content} /></div>
-                <div className="msg-time" style={msg.role === 'user' ? { textAlign: 'right' } : undefined}>{msg.time}</div>
-              </div>
-            </div>
+              {/* 显示与消息关联的任务 */}
+              {tasks.filter(t => t.conversationId === convId).map(task => (
+                <div key={task.id} style={{ paddingLeft: 44, marginBottom: 8 }}>
+                  <TaskCard task={task} />
+                </div>
+              ))}
+            </React.Fragment>
           ))
         )}
         {isStreaming && lastStreaming && (
@@ -233,6 +250,57 @@ export const ConversationDetail: React.FC = () => {
         <div ref={messagesEndRef} />
       </div>
       <ChatInput rows={1} fullDropdowns={false} onSend={handleSend} hideAgentSelector />
+    </div>
+  );
+};
+
+// ── 任务建议按钮（在 AI 回复下方显示） ──
+const TaskSuggestButton: React.FC<{ content: string; msgId: string; convId: string }> = ({ content, convId }) => {
+  const [showForm, setShowForm] = React.useState(false);
+  const [title, setTitle] = React.useState('');
+  const createTask = useTaskStore((s) => s.createTaskFromMessage);
+
+  const suggestTask = () => {
+    // 从 AI 回复中提取前 40 字作为任务标题
+    const firstLine = content.split('\n')[0].replace(/^#+\s*/, '').slice(0, 40);
+    setTitle(firstLine || '新任务');
+    setShowForm(true);
+  };
+
+  const confirmTask = () => {
+    if (!title.trim()) return;
+    createTask(title.trim(), content.slice(0, 200), convId);
+    setShowForm(false);
+  };
+
+  return (
+    <div>
+      {!showForm ? (
+        <button onClick={suggestTask}
+          style={{
+            padding: '2px 8px', borderRadius: 4, fontSize: 10, border: '1px solid var(--cb-border)',
+            background: 'transparent', cursor: 'pointer', color: 'var(--cb-text-secondary)',
+          }}>
+          + 创建任务
+        </button>
+      ) : (
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          <input value={title} onChange={e => setTitle(e.target.value)}
+            style={{
+              flex: 1, padding: '3px 6px', fontSize: 11, borderRadius: 4,
+              border: '1px solid var(--cb-border)', outline: 'none',
+            }}
+            placeholder="任务名称" autoFocus />
+          <button onClick={confirmTask}
+            style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, border: 'none', background: 'var(--cb-button-primary)', color: '#fff', cursor: 'pointer' }}>
+            确定
+          </button>
+          <button onClick={() => setShowForm(false)}
+            style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, border: '1px solid var(--cb-border)', background: 'transparent', cursor: 'pointer' }}>
+            取消
+          </button>
+        </div>
+      )}
     </div>
   );
 };
