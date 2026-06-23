@@ -1,4 +1,4 @@
-export type PageId = 'home' | 'assistant' | 'projects' | 'experts' | 'tools' | 'artifacts' | 'conversation';
+export type PageId = 'home' | 'assistant' | 'projects' | 'tasks' | 'experts' | 'tools' | 'artifacts' | 'conversation';
 
 export interface Expert {
   id: string;

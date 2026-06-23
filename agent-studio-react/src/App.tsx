@@ -6,6 +6,7 @@ import { TopBar } from './components/TopBar/TopBar';
 import { HomePage } from './components/pages/HomePage';
 import { AssistantPage } from './components/pages/AssistantPage';
 import { ProjectsPage } from './components/pages/ProjectsPage';
+import { TasksPage } from './components/pages/TasksPage';
 import { ExpertsPage } from './components/pages/ExpertsPage';
 import { ToolsPage } from './components/pages/ToolsPage';
 import { ArtifactsPage } from './components/pages/ArtifactsPage';
@@ -96,6 +97,7 @@ const App: React.FC = () => {
       case 'home': return <HomePage />;
       case 'assistant': return <AssistantPage />;
       case 'projects': return <ProjectsPage />;
+      case 'tasks': return <TasksPage />;
       case 'experts': return <ExpertsPage />;
       case 'tools': return <ToolsPage />;
       case 'artifacts': return <ArtifactsPage />;
