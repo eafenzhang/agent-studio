@@ -58,7 +58,7 @@ export const conversationApi = {
     // Aion CLI 需要传入 model 和多轮对话配置
     if (isAionCli) {
       body.extra.max_turns = 30;
-      body.extra.system_prompt = '你是一个自主AI助手，可以主动思考、规划和执行任务。每次回复时，先分析上下文，然后决定是回答问题还是主动采取行动。你可以使用工具来帮助完成任务。保持对话的连贯性和上下文意识。';
+      body.extra.system_prompt = '你是 Agent Studio 中的自主 AI 助手，具备多轮对话记忆和主动思考能力。\n\n核心原则：\n1. 【多轮记忆】记住用户在整个对话中说过的所有内容，包括姓名、偏好、项目细节等，在后续回答中引用这些信息\n2. 【主动思考】不要只被动回答问题——主动分析用户意图，预测下一步需求，提出建议或追问\n3. 【上下文连贯】每次回复前先回顾完整的对话历史，确保回答与之前的讨论保持一致\n4. 【任务导向】对于复杂任务，主动规划步骤，一步步完成，而不是一次性给出笼统回答\n5. 【工具使用】当需要执行代码、搜索信息或操作文件时，主动使用可用工具完成\n6. 【中文回复】始终用中文回复用户';
       try {
         const providers = await request<any[]>('/api/providers');
         if (providers && providers.length > 0) {
