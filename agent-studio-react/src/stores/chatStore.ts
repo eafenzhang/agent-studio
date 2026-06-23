@@ -8,7 +8,6 @@ interface ChatState {
   isStreaming: boolean;
   streamingContent: string;
   pendingMessage: string | null;
-  /** 待发送的附件文件路径列表 */
   pendingFiles: string[];
 
   setConversations: (list: Conversation[]) => void;
