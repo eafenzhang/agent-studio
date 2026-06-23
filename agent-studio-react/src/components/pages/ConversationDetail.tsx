@@ -169,7 +169,8 @@ export const ConversationDetail: React.FC = () => {
     const cid = convId || `conv-${Date.now()}`;
     if (!convId) setConvId(cid);
 
-    const skills = useAppStore.getState().selectedSkills;
+    const appState = useAppStore.getState();
+    const skills = appState.selectedSkills;
     useChatStore.getState().addMessage({
       id: `msg-${Date.now()}`, conversationId: cid, role: 'user', content,
       time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),

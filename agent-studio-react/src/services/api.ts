@@ -40,6 +40,7 @@ export const conversationApi = {
   list: () => request<ConversationList>('/api/conversations'),
   get: (id: string) => request<ConversationItem>(`/api/conversations/${id}`),
   create: async (name: string, agentId?: string, options?: { assistantId?: string; skills?: string[]; mode?: string }) => {
+    const modeMap: Record<string, string> = { '行动': 'action', '规划': 'plan', '自主': 'auto' };
     const id = agentId || DEFAULT_AGENT_ID;
     const isAionCli = id === '632f31d2';
     const body: Record<string, any> = {
@@ -53,7 +54,8 @@ export const conversationApi = {
       body.extra = { ...body.extra, skill_ids: options.skills };
     }
     if (options?.mode) {
-      body.extra = { ...body.extra, mode: options.mode };
+      const mappedMode = modeMap[options.mode] || options.mode;
+      body.extra = { ...body.extra, mode: mappedMode };
     }
     // Aion CLI 需要传入 model 和多轮对话配置
     if (isAionCli) {

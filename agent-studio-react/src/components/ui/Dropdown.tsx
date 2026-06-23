@@ -8,6 +8,8 @@ interface DropdownItem {
   avatar?: string;
   /** 图片头像 URL */
   avatarUrl?: string;
+  /** 描述文本（显示在 label 下方） */
+  description?: string;
 }
 
 interface DropdownSection {
@@ -69,7 +71,10 @@ export const Dropdown: React.FC<DropdownProps> = ({
                 ) : item.avatar ? (
                   <span style={{ width: 18, height: 18, borderRadius: 4, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, marginRight: 6, flexShrink: 0, background: 'var(--cb-tag-background)' }}>{item.avatar}</span>
                 ) : null}
-                <span className="chat-dropdown-item-label">{item.label}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span className="chat-dropdown-item-label">{item.label}</span>
+                  {item.description && <div style={{ fontSize: 10, color: 'var(--cb-text-tertiary)', marginTop: 1, lineHeight: 1.3 }}>{item.description}</div>}
+                </div>
                 <svg className="chat-dropdown-item-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Dropdown } from './Dropdown';
 import { systemApi, assistantApi, agentApi } from '../../services/api';
 import { useAppStore } from '../../stores/appStore';
-import { modeOptions as fallbackModes } from '../../data/constants';
+import { modeDefinitions } from '../../data/constants';
 
 interface ChatInputProps {
   placeholder?: string;
@@ -28,7 +28,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const setSelectedSkills = useAppStore((s) => s.setSelectedSkills);
   const [model, setModel] = useState('');
   const [input, setInput] = useState('');
-  const [modeOptions] = useState(fallbackModes);
+  const modeOptions = modeDefinitions;
 
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [toolOptions, setToolOptions] = useState<string[]>([]);
@@ -117,12 +117,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
             {fullDropdowns ? (
               <Dropdown trigger={
-                <button className="chat-toolbar-btn chat-toolbar-btn-primary">
+                <button className="chat-toolbar-btn chat-toolbar-btn-primary" title={modeOptions.find(m => m.label === selectedMode)?.description}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
                   <span>{selectedMode}</span>{caretSvg}
                 </button>
-              } sections={[{ items: modeOptions.map(o => ({ label: o })) }]}
-                activeValue={selectedMode} onSelect={setSelectedMode} />
+              } sections={[{ items: modeOptions.map(m => ({ label: m.label, description: m.description })) }]}
+                activeValue={selectedMode} onSelect={(v) => {
+                  const mode = modeOptions.find(m => m.label === v);
+                  if (mode) setSelectedMode(mode.label);
+                }} />
             ) : (
               <button className="chat-toolbar-btn chat-toolbar-btn-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>行动</button>
             )}

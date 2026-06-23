@@ -67,7 +67,35 @@ export const categories = [
   { id: 'creative', label: '创意设计' },
 ];
 
-// ── 输入栏配置（UI 常量，不依赖后端）───────────
-export const modeOptions = ['行动', '规划', '自主'];
-export const modelOptions = ['GPT-4o', 'Claude 3.5 Sonnet', 'DeepSeek V3', 'Qwen 2.5 Max'];
-export const expertMenuOptions = ['代码开发工程师', 'UI 设计师', '内容创作专家', '数据分析师'];
+// ── 会话模式定义 ────────────────────────────────
+export interface ModeInfo {
+  id: string;
+  label: string;
+  description: string;
+  /** 传给 API 的 mode 值 */
+  apiValue: string;
+}
+
+export const modeDefinitions: ModeInfo[] = [
+  {
+    id: 'action',
+    label: '行动',
+    description: '在工作区内执行操作，使用工具需用户确认',
+    apiValue: 'action',
+  },
+  {
+    id: 'plan',
+    label: '规划',
+    description: '适合长任务制定计划，执行步骤需审批',
+    apiValue: 'plan',
+  },
+  {
+    id: 'auto',
+    label: '自主',
+    description: 'AI 完全自主控制，无需人工干预',
+    apiValue: 'auto',
+  },
+];
+
+// 向后兼容
+export const modeOptions = modeDefinitions.map(m => m.label);
