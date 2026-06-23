@@ -227,9 +227,12 @@ export const ConversationDetail: React.FC = () => {
     }
 
     const skills = useAppStore.getState().selectedSkills;
+    const files = useChatStore.getState().pendingFiles;
+    useChatStore.getState().setPendingFiles([]); // 消费后清除
     useChatStore.getState().addMessage({
       id: `msg-${Date.now()}`, conversationId: cid, role: 'user', content,
       time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      files: files.length > 0 ? files.map(p => ({ name: p.split('/').pop() || p, path: p })) : undefined,
     });
     setStreaming(true);
     resetStreaming();
@@ -237,6 +240,7 @@ export const ConversationDetail: React.FC = () => {
     try {
       const r = await conversationApi.sendMessage(cid, content, {
         skills: skills.length > 0 ? skills : undefined,
+        files: files.length > 0 ? files : undefined,
       });
       if (r && (r as any).msg_id) {
         pollForResponse(cid);

@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Dropdown } from './Dropdown';
 import { systemApi, assistantApi, agentApi } from '../../services/api';
 import { useAppStore } from '../../stores/appStore';
 import { modeDefinitions } from '../../data/constants';
+import { useChatStore } from '../../stores/chatStore';
 
 interface ChatInputProps {
   placeholder?: string;
@@ -29,6 +30,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const selectedModel = useAppStore((s) => s.selectedModel);
   const setSelectedModel = useAppStore((s) => s.setSelectedModel);
   const [input, setInput] = useState('');
+  const [uploadedFiles, setUploadedFiles] = useState<{ name: string; path: string }[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const modeOptions = modeDefinitions;
 
   const [modelOptions, setModelOptions] = useState<string[]>([]);
@@ -74,16 +77,22 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     </svg>
   );
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      if (input.trim() && onSend) { onSend(input); setInput(''); }
+  const doSend = () => {
+    if (!input.trim() || !onSend) return;
+    // 将文件路径存入 chatStore 供 ConversationDetail 的 handleSend 读取
+    if (uploadedFiles.length > 0) {
+      useChatStore.getState().setPendingFiles(uploadedFiles.map(f => f.path));
     }
+    onSend(input);
+    setInput('');
+    setUploadedFiles([]);
   };
 
-  const handleSendClick = () => {
-    if (input.trim() && onSend) { onSend(input); setInput(''); }
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); }
   };
+
+  const handleSendClick = () => { doSend(); };
 
   const toolSectionItems = toolOptions.length > 0
     ? toolOptions.map(t => ({ label: t }))
@@ -93,26 +102,41 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     <div className="chat-input-area">
       <div className="chat-input-content">
         <div className="chat-input-main">
+          {/* 已上传文件列表 */}
+          {uploadedFiles.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '4px 0', borderBottom: '1px solid var(--cb-border-subtle)' }}>
+              {uploadedFiles.map((f, i) => (
+                <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 6px', background: 'var(--cb-tag-background)', borderRadius: 4, fontSize: 11, color: 'var(--cb-text-secondary)' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="12" height="12" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  {f.name}
+                  <button onClick={() => setUploadedFiles(prev => prev.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cb-text-tertiary)', padding: 0, lineHeight: 1, fontSize: 12 }}>×</button>
+                </span>
+              ))}
+            </div>
+          )}
           <textarea className="chat-input-textarea" rows={rows} placeholder={placeholder}
             value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown} />
 
           <div className="chat-input-toolbar">
-            <button className="chat-toolbar-plus" aria-label="添加" onClick={() => document.getElementById('file-upload')?.click()}>
+            <button className="chat-toolbar-plus" aria-label="添加" onClick={() => fileInputRef.current?.click()}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
               </svg>
             </button>
-            <input id="file-upload" type="file" multiple style={{display:'none'}} onChange={async (e) => {
+            <input ref={fileInputRef} type="file" multiple style={{display:'none'}} onChange={async (e) => {
               const files = e.target.files;
               if (!files || files.length === 0) return;
-              const file = files[0];
-              const formData = new FormData();
-              formData.append('file', file);
-              try {
-                const res = await fetch('http://localhost:25808/api/fs/upload', { method: 'POST', body: formData });
-                const data = await res.json();
-                if (data?.success) console.log('Uploaded:', data.data);
-              } catch (err) { console.error('Upload failed:', err); }
+              const uploaded: {name:string;path:string}[] = [];
+              for (const file of Array.from(files)) {
+                const formData = new FormData();
+                formData.append('file', file);
+                try {
+                  const res = await fetch('http://localhost:25808/api/fs/upload', { method: 'POST', body: formData });
+                  const data = await res.json();
+                  if (data?.success) uploaded.push({ name: file.name, path: data.data?.path || data.data || '' });
+                } catch { /* upload failed for this file */ }
+              }
+              setUploadedFiles(prev => [...prev, ...uploaded]);
               e.target.value = '';
             }} />
 

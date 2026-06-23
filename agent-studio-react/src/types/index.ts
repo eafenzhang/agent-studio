@@ -24,6 +24,7 @@ export interface Message {
   time: string;
   type?: string;
   toolCalls?: ToolCall[];
+  files?: { name: string; path: string }[];
 }
 
 export interface ToolCall {
