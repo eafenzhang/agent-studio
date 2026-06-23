@@ -39,7 +39,7 @@ export class ApiError extends Error {
 export const conversationApi = {
   list: () => request<ConversationList>('/api/conversations'),
   get: (id: string) => request<ConversationItem>(`/api/conversations/${id}`),
-  create: async (name: string, agentId?: string, options?: { assistantId?: string; skills?: string[]; mode?: string }) => {
+  create: async (name: string, agentId?: string, options?: { assistantId?: string; skills?: string[]; mode?: string; model?: string }) => {
     const modeMap: Record<string, string> = { '行动': 'action', '规划': 'plan', '自主': 'auto' };
     const id = agentId || DEFAULT_AGENT_ID;
     const isAionCli = id === '632f31d2';
@@ -65,8 +65,8 @@ export const conversationApi = {
         const providers = await request<any[]>('/api/providers');
         if (providers && providers.length > 0) {
           const p = providers[0];
-          const firstModel = (p.models || [])[0] || 'deepseek-chat';
-          body.model = { provider_id: p.id, model: firstModel };
+          const modelName = options?.model || (p.models || [])[0] || 'deepseek-chat';
+          body.model = { provider_id: p.id, model: modelName };
         }
       } catch { /* 离线模式不用 model 信息 */ }
     }

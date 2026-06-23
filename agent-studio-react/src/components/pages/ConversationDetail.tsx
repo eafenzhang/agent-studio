@@ -182,12 +182,14 @@ export const ConversationDetail: React.FC = () => {
   // ── 获取真实 convId（没有则创建） ──
   const ensureConvId = useCallback(async () => {
     if (convId) return convId;
+    const state = useAppStore.getState();
     const title = conversationTitle || '新对话';
-    const agentId = useAppStore.getState().selectedAgentId;
-    const created = await conversationApi.create(title, agentId);
+    const created = await conversationApi.create(title, state.selectedAgentId, {
+      mode: state.selectedMode,
+      model: state.selectedModel || undefined,
+    });
     if (created?.id) {
       setConvId(created.id);
-      // 更新 appStore 中的 ID
       useAppStore.getState().openConversation(title, created.id);
       return created.id;
     }

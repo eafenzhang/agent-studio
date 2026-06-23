@@ -12,6 +12,8 @@ interface AppState {
   selectedMode: string;
   /** 当前选中的技能列表 */
   selectedSkills: string[];
+  /** 当前选中的模型名称 */
+  selectedModel: string;
   /** 当前选中的专家/助手 ID */
   selectedAssistantId: string | null;
 
@@ -25,6 +27,7 @@ interface AppState {
   setSelectedMode: (mode: string) => void;
   setSelectedSkills: (skills: string[]) => void;
   setSelectedAssistantId: (id: string | null) => void;
+  setSelectedModel: (model: string) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -36,6 +39,7 @@ export const useAppStore = create<AppState>((set) => ({
   selectedAgentId: '632f31d2',
   selectedMode: '行动',
   selectedSkills: [],
+  selectedModel: '',
   selectedAssistantId: null,
 
   switchPage: (page) => set({ activePage: page, conversationTitle: null, conversationId: null }),
@@ -48,4 +52,5 @@ export const useAppStore = create<AppState>((set) => ({
   setSelectedMode: (mode) => set({ selectedMode: mode }),
   setSelectedSkills: (skills) => set({ selectedSkills: skills }),
   setSelectedAssistantId: (id) => set({ selectedAssistantId: id }),
+  setSelectedModel: (model) => set({ selectedModel: model }),
 }));

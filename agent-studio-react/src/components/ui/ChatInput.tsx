@@ -26,7 +26,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const setSelectedMode = useAppStore((s) => s.setSelectedMode);
   const selectedSkills = useAppStore((s) => s.selectedSkills);
   const setSelectedSkills = useAppStore((s) => s.setSelectedSkills);
-  const [model, setModel] = useState('');
+  const selectedModel = useAppStore((s) => s.selectedModel);
+  const setSelectedModel = useAppStore((s) => s.setSelectedModel);
   const [input, setInput] = useState('');
   const modeOptions = modeDefinitions;
 
@@ -39,7 +40,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       if (data) {
         const models = data.flatMap((p: any) => p.models || []);
         if (models.length > 0) setModelOptions(models);
-        if (!model && models.length > 0) setModel(models[0]);
+        if (!selectedModel && models.length > 0) setSelectedModel(models[0]);
       }
     });
     // Tools: collect from assistants' enabled_skills
@@ -64,7 +65,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!model && modelOptions.length > 0) setModel(modelOptions[0]);
+    if (!selectedModel && modelOptions.length > 0) setSelectedModel(modelOptions[0]);
   }, [modelOptions]);
 
   const caretSvg = (
@@ -133,10 +134,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             <Dropdown trigger={
               <button className="chat-toolbar-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-                <span>{model || '选择模型'}</span>{caretSvg}
+                <span>{selectedModel || '选择模型'}</span>{caretSvg}
               </button>
             } sections={[{ items: modelOptions.map(o => ({ label: o })) }]}
-              activeValue={model} onSelect={setModel} />
+              activeValue={selectedModel} onSelect={setSelectedModel} />
 
             <Dropdown trigger={
               <button className="chat-toolbar-btn">
