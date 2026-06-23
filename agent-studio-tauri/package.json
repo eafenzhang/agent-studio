@@ -1,6 +1,6 @@
 {
   "name": "agent-studio",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Agent Studio - AI Creative Workspace",
   "scripts": {
     "tauri": "tauri",
