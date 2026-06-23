@@ -1,11 +1,11 @@
 {
-  "version": "1.0.0",
-  "notes": "Agent Studio v1.0.0 - Initial release",
-  "pub_date": "2026-06-22T00:00:00Z",
+  "version": "1.0.9",
+  "notes": "Agent Studio v1.0.9 - Fix online update system, new signing keys, conversation improvements",
+  "pub_date": "2026-06-23T16:00:00Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHJzaWduIGVuY3J5cHRlZCBzZWNyZXQga2V5ClJXUlRZMEl5dEJ1NUR1QVBieGg0ak1ZMGwzNWpmQlBrWU1pZ05hak0wT0RsRFliK1Nqa0FBQkFBQUFBQUFBQUFBQUlBQUFBQU1uUCs4aEFtWnhVWThuRG45cStuY1BiNFJMOVlNaktCSmpIelVGUzB5WFpJcUJ3T0Q4V3RjbXJBOGRUYWFIL0hGZ1Y2eXl3QUlwdzVGUG1GVVBCQmpFMkVHOHBkaHRWRnpLQVNKbWtKK1ZUbFVWQnpuTzRidHR3U3JvYy9IaUU4cjhyczY1YUtSODQ9Cg==",
-      "url": "https://github.com/eafenzhang/agent-studio/releases/download/v1.0.0/Agent_Studio_1.0.0_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSVHhRcjRxM3ZROEN3aHMwQkxvbVVwanJJcnhtekUwUElKdDBvUTQ5N0Y1V1BWMnR6SkI3dStFRHBVYjhnaWlsREtDQS9hR0pXMVh6R1ordzQybVE4aE51R0p4RzRrZVFjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgyMjA0Njk0CWZpbGU6QWdlbnQgU3R1ZGlvXzEuMC45X3g2NC1zZXR1cC5leGUKelV0U1gzN24zZkNFell0NzJuLzNxcUtTYXJBUktnYlpoQW56YnpENkJFYlpGeUdudUgzei90TG1qN2NtMFNkLzlGV3RndVIyTEczZFlCTUFwUVFSQWc9PQo=",
+      "url": "https://github.com/eafenzhang/agent-studio/releases/download/v1.0.9/Agent_Studio_1.0.9_x64-setup.exe"
     }
   }
 }
