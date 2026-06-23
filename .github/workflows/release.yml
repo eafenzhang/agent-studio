@@ -12,29 +12,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+
       - name: Install dependencies
         run: npm ci
+
       - name: Build frontend
         run: npm run build
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-pc-windows-msvc
+
       - name: Build Tauri and create release
-        id: tauri-build
-        uses: tauri-apps/tauri-action@v2
+        uses: tauri-apps/tauri-action@v0.6.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Agent Studio ${{ github.ref_name }}'
-          releaseBody: |
-            ## Agent Studio ${{ github.ref_name }}
-            ### Changes
-            - 会话模块架构重构 — 统一 WS 协议、消除数据双写
-            - 新增任务中心 — 任务管理、状态追踪
-            - 增强聊天渲染 — 代码块复制、推理链展示、多轮自思考
-            - 会话模式定义 — 行动/规划/自主
-            - 多项 Bug 修复和性能优化
-          releaseDraft: false
-          prerelease: false
+          releaseBody: 'See the assets below for the latest installer.'
