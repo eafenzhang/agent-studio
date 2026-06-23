@@ -1,35 +1,15 @@
-# Dependencies
 node_modules/
-
-# Build output
 dist/
 target/
-
-# Tauri
-src-tauri/target/
-
-# IDE
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-
-# Debug symbols
 *.pdb
-
-# Environment
+*.log
+.DS_Store
 .env
 .env.local
-
-# Vite
 .vite/
-
-# Generated assets
 outputs/
 uploads/
 assets/
+src-tauri/target/
+src-tauri/backend/
+**/*.db
