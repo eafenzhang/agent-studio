@@ -366,10 +366,12 @@ export const ConversationDetail: React.FC = () => {
 const TaskSuggestButton: React.FC<{ content: string; msgId: string; convId: string }> = ({ content, convId }) => {
   const [showForm, setShowForm] = React.useState(false);
   const [title, setTitle] = React.useState('');
+  const selectedMode = useAppStore((s) => s.selectedMode);
   const createTask = useTaskStore((s) => s.createTaskFromMessage);
+  const createFromAlignment = useTaskStore((s) => s.createTaskFromAlignment);
+  const isAlignment = selectedMode === '对齐';
 
   const suggestTask = () => {
-    // 从 AI 回复中提取前 40 字作为任务标题
     const firstLine = content.split('\n')[0].replace(/^#+\s*/, '').slice(0, 40);
     setTitle(firstLine || '新任务');
     setShowForm(true);
@@ -377,28 +379,31 @@ const TaskSuggestButton: React.FC<{ content: string; msgId: string; convId: stri
 
   const confirmTask = () => {
     if (!title.trim()) return;
-    createTask(title.trim(), content.slice(0, 200), convId);
+    if (isAlignment) {
+      // 对齐模式：生成完整任务文档
+      createFromAlignment(title.trim(), content.slice(0, 300), convId, content);
+    } else {
+      createTask(title.trim(), content.slice(0, 200), convId);
+    }
     setShowForm(false);
   };
 
   return (
-    <div>
+    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
       {!showForm ? (
         <button onClick={suggestTask}
           style={{
             padding: '2px 8px', borderRadius: 4, fontSize: 10, border: '1px solid var(--cb-border)',
             background: 'transparent', cursor: 'pointer', color: 'var(--cb-text-secondary)',
+            whiteSpace: 'nowrap',
           }}>
-          + 创建任务
+          {isAlignment ? '📄 生成任务文档' : '+ 创建任务'}
         </button>
       ) : (
-        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center', flex: 1 }}>
           <input value={title} onChange={e => setTitle(e.target.value)}
-            style={{
-              flex: 1, padding: '3px 6px', fontSize: 11, borderRadius: 4,
-              border: '1px solid var(--cb-border)', outline: 'none',
-            }}
-            placeholder="任务名称" autoFocus />
+            style={{ flex: 1, padding: '3px 6px', fontSize: 11, borderRadius: 4, border: '1px solid var(--cb-border)', outline: 'none' }}
+            placeholder={isAlignment ? '任务名称（将生成四份文档）' : '任务名称'} autoFocus />
           <button onClick={confirmTask}
             style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, border: 'none', background: 'var(--cb-button-primary)', color: '#fff', cursor: 'pointer' }}>
             确定

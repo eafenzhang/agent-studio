@@ -63,6 +63,20 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
           ))}
         </div>
       )}
+      {/* 任务文档 */}
+      {task.docs && task.docs.length > 0 && (
+        <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          {task.docs.map((doc) => (
+            <span key={doc.name} style={{
+              padding: '2px 6px', borderRadius: 3, fontSize: 10,
+              background: 'rgba(108,77,255,0.06)', border: '1px solid rgba(108,77,255,0.15)',
+              color: 'var(--cb-button-primary)', cursor: 'default',
+            }} title={doc.content.slice(0, 100)}>
+              📄 {doc.name}
+            </span>
+          ))}
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
         {task.status === 'pending' && (
           <button onClick={() => updateTask(task.id, { status: 'in_progress' })}
