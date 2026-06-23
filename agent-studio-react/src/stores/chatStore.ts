@@ -30,7 +30,10 @@ export const useChatStore = create<ChatState>((set) => ({
   setConversations: (list) => set({ conversations: list }),
   setActiveConversation: (id) => set({ activeConversationId: id }),
   setMessages: (msgs) => set({ messages: msgs }),
-  addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
+  addMessage: (msg) => set((s) => {
+    if (s.messages.find(m => m.id === msg.id)) return s; // 去重
+    return { messages: [...s.messages, msg] };
+  }),
   setStreaming: (v) => set({ isStreaming: v }),
   appendStreaming: (chunk) =>
     set((s) => ({ streamingContent: s.streamingContent + chunk })),

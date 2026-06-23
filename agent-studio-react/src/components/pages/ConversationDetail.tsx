@@ -64,6 +64,13 @@ export const ConversationDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [convId, setConvId] = useState<string | null>(null);
   const sentRef = useRef(false);
+  const mountedRef = useRef(true);
+
+  // ── 组件挂载/卸载跟踪 ──
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   // ── 初始化：加载消息 ──
   useEffect(() => {
@@ -120,8 +127,8 @@ export const ConversationDetail: React.FC = () => {
     const msg = useChatStore.getState().pendingMessage;
     if (!msg) return;
     sentRef.current = true;
-    useChatStore.getState().setPendingMessage(null);
 
+    // 先不清除 pendingMessage，成功后清除
     const store = useChatStore.getState();
     store.addMessage({
       id: `msg-${Date.now()}`, conversationId: convId, role: 'user', content: msg,
@@ -134,6 +141,7 @@ export const ConversationDetail: React.FC = () => {
     conversationApi.sendMessage(convId, msg, {
       skills: skills.length > 0 ? skills : undefined,
     }).then(r => {
+      useChatStore.getState().setPendingMessage(null); // 成功后清除
       if (r && (r as any).msg_id) {
         pollForResponse(convId);
       } else {
@@ -141,7 +149,8 @@ export const ConversationDetail: React.FC = () => {
         useChatStore.getState().resetStreaming();
       }
     }).catch(() => {
-      sentRef.current = false; // 失败时重置，允许重试
+      // 失败时保留 pendingMessage，重置 sentRef 允许重试
+      sentRef.current = false;
       useChatStore.getState().setStreaming(false);
       useChatStore.getState().addMessage({
         id: `err-${Date.now()}`, conversationId: convId, role: 'system',
@@ -154,29 +163,33 @@ export const ConversationDetail: React.FC = () => {
   // ── 轮询等待 AI 回复（使用 mapMessages 统一处理所有类型） ──
   const pollForResponse = useCallback(async (cid: string) => {
     for (let i = 0; i < 40; i++) {
+      if (!mountedRef.current) return;
       await new Promise(r => setTimeout(r, 2000));
+      if (!mountedRef.current) return;
       try {
         const result = await conversationApi.messages(cid);
         const items: any[] = result?.items || [];
         if (items.length === 0) continue;
 
         const current = useChatStore.getState().messages;
-        // 使用 mapMessages 统一处理所有消息类型
         const mapped = mapMessages(items, cid);
         let foundReply = false;
 
         for (const msg of mapped) {
           if (current.find(c => c.id === msg.id)) continue;
           if (msg.role === 'user') continue;
+          if (!mountedRef.current) return;
           useChatStore.getState().addMessage(msg);
           foundReply = true;
-          break; // 一次只添加一条新消息，避免乱序
+          break;
         }
         if (foundReply) break;
       } catch { break; }
     }
-    setStreaming(false);
-    resetStreaming();
+    if (mountedRef.current) {
+      setStreaming(false);
+      resetStreaming();
+    }
   }, []);
 
   // ── 获取真实 convId（没有则创建） ──
