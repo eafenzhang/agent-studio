@@ -18,3 +18,18 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Debug symbols
+*.pdb
+
+# Environment
+.env
+.env.local
+
+# Vite
+.vite/
+
+# Generated assets
+outputs/
+uploads/
+assets/

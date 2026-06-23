@@ -1,0 +1,83 @@
+{
+  "designSystemApproved": false,
+  "activePage": "agent-studio.html",
+  "version": 1,
+  "createdAt": "2026-06-18T13:29:17.826Z",
+  "updatedAt": "2026-06-21T14:44:03.439Z",
+  "frames": [
+    {
+      "id": "agent-studio",
+      "kind": "html-file",
+      "title": "Agent Studio",
+      "fileName": "agent-studio.html",
+      "x": 0,
+      "y": 0,
+      "width": 1440,
+      "height": 810,
+      "status": "active",
+      "createdAt": "2026-06-21T14:17:53.164Z",
+      "updatedAt": "2026-06-21T14:17:53.164Z"
+    }
+  ],
+  "activeFrameId": "agent-studio",
+  "tweaks": [
+    {
+      "control": "preset",
+      "label": "Appearance",
+      "presetOptions": [
+        {
+          "label": "Light",
+          "patches": [
+            {
+              "value": "#f3f3f3",
+              "variable": "--wb-sidebar-bg"
+            },
+            {
+              "value": "#333333",
+              "variable": "--cb-text-primary"
+            },
+            {
+              "value": "#6c4dff",
+              "variable": "--cb-button-primary"
+            },
+            {
+              "value": "#ffffff",
+              "variable": "--cb-main-area-background"
+            }
+          ],
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "patches": [
+            {
+              "value": "#252526",
+              "variable": "--wb-sidebar-bg"
+            },
+            {
+              "value": "#d2d3e0",
+              "variable": "--cb-text-primary"
+            },
+            {
+              "value": "#6c4dff",
+              "variable": "--cb-button-primary"
+            },
+            {
+              "value": "#181B20",
+              "variable": "--cb-main-area-background"
+            }
+          ],
+          "value": "dark"
+        }
+      ],
+      "value": "light",
+      "variable": "--appearance-preset"
+    },
+    {
+      "control": "color",
+      "label": "Accent",
+      "value": "#6c4dff",
+      "variable": "--cb-button-primary"
+    }
+  ]
+}
