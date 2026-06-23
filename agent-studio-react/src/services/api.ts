@@ -40,7 +40,7 @@ export const conversationApi = {
   list: () => request<ConversationList>('/api/conversations'),
   get: (id: string) => request<ConversationItem>(`/api/conversations/${id}`),
   create: async (name: string, agentId?: string, options?: { assistantId?: string; skills?: string[]; mode?: string; model?: string }) => {
-    const modeMap: Record<string, string> = { '行动': 'action', '规划': 'plan', '自主': 'auto' };
+    const modeMap: Record<string, string> = { '行动': 'action', '对齐': 'alignment', '自主': 'auto' };
     const id = agentId || DEFAULT_AGENT_ID;
     const isAionCli = id === '632f31d2';
     const body: Record<string, any> = {
@@ -60,7 +60,10 @@ export const conversationApi = {
     // Aion CLI 需要传入 model 和多轮对话配置
     if (isAionCli) {
       body.extra.max_turns = 30;
-      body.extra.system_prompt = '你是 Agent Studio 中的自主 AI 助手，具备多轮对话记忆和主动思考能力。\n\n核心原则：\n1. 【多轮记忆】记住用户在整个对话中说过的所有内容，包括姓名、偏好、项目细节等，在后续回答中引用这些信息\n2. 【主动思考】不要只被动回答问题——主动分析用户意图，预测下一步需求，提出建议或追问\n3. 【上下文连贯】每次回复前先回顾完整的对话历史，确保回答与之前的讨论保持一致\n4. 【任务导向】对于复杂任务，主动规划步骤，一步步完成，而不是一次性给出笼统回答\n5. 【工具使用】当需要执行代码、搜索信息或操作文件时，主动使用可用工具完成\n6. 【中文回复】始终用中文回复用户';
+      // 根据模式选择不同的 system prompt
+      const alignmentPrompt = '你是一个「想法对齐」引导者。你的工作：\n\n1. 【开场白】用你自己的话告诉用户：「我会和你把这个想法聊清楚。如果聊着聊着你想当场做什么，我就帮你做；如果它值得独立成一个任务，我会提议固化成 task。先讲讲你这个想法是怎么冒出来的？」\n\n2. 【聊清楚六个维度】自然地聊：动机和背景、范围和边界、技术约束、现有代码/文件、风险和边缘情况、用户特别强调的点。不要列表提问，要自然对话。\n\n3. 【聚焦目标】目标是确认「要做什么」和「怎么验证完成」。不要问"怎么验证"——主动提议具体的验证标准，让用户确认或调整。\n\n4. 【决策分流】在对话中判断：用户想当场搞定 → 直接动手做。用户的诉求值得独立成任务 → 提议「要不要我生成四份文档（任务描述、验证标准、执行计划、对齐记录）固化为任务，以后独立派发？」\n\n5. 【前置调研】在提问前先读代码、查文件、搜索网络。不要问你能自己查到的东西。\n\n6. 【中文回复】始终用中文。';
+      const defaultPrompt = '你是 Agent Studio 中的自主 AI 助手，具备多轮对话记忆和主动思考能力。\n\n核心原则：\n1. 【多轮记忆】记住用户在整个对话中说过的所有内容，包括姓名、偏好、项目细节等\n2. 【主动思考】不要只被动回答问题——主动分析用户意图，预测下一步需求\n3. 【上下文连贯】每次回复前先回顾完整的对话历史\n4. 【任务导向】对于复杂任务，主动规划步骤，一步步完成\n5. 【工具使用】当需要执行代码、搜索信息或操作文件时，主动使用可用工具\n6. 【中文回复】始终用中文回复用户';
+      body.extra.system_prompt = options?.mode === '对齐' ? alignmentPrompt : defaultPrompt;
       try {
         const providers = await request<any[]>('/api/providers');
         if (providers && providers.length > 0) {

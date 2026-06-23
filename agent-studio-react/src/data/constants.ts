@@ -84,10 +84,10 @@ export const modeDefinitions: ModeInfo[] = [
     apiValue: 'action',
   },
   {
-    id: 'plan',
-    label: '规划',
-    description: '适合长任务制定计划，执行步骤需审批',
-    apiValue: 'plan',
+    id: 'alignment',
+    label: '对齐',
+    description: '聊清楚想法 → 决定当场做还是固化为任务',
+    apiValue: 'alignment',
   },
   {
     id: 'auto',
