@@ -380,7 +380,6 @@ input, textarea { font-family: inherit; }
   cursor: pointer; color: #999; transition: all 0.15s;
 }
 .msg-action-btn:hover { background: rgba(0,0,0,0.04); color: #666; }
-.msg-copy-btn { composes: msg-action-btn; }
 /* Override markdown in user messages - force white text */
 .msg-bubble.user .streaming-text code { color: #fff; background: rgba(255,255,255,0.15); }
 .msg-bubble.user .streaming-text .code-block { background: rgba(0,0,0,0.2); }
