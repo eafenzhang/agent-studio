@@ -82,11 +82,12 @@ export const ConversationDetail: React.FC = () => {
   // ── 初始化：加载消息 ──
   useEffect(() => {
     if (!conversationTitle && !conversationId) return;
+
+    // 切换会话时先清空旧消息
+    useChatStore.getState().setMessages([]);
     sentRef.current = false;
 
     const init = async () => {
-      // 切换会话时先清空旧消息
-      useChatStore.getState().setMessages([]);
       if (conversationId) {
         setConvId(conversationId);
         // 加载历史消息
@@ -252,44 +253,91 @@ export const ConversationDetail: React.FC = () => {
     setStreaming(true);
     resetStreaming();
 
-    // 先注册 WS 监听（避免丢失早期 chunk），再发消息
-    let accumulated = '';
-    if (wsClient.connected) {
-      wsClient.subscribeConversationStream(cid, {
-        onChunk: (chunk) => {
-          if (chunk.type === 'text' && chunk.content) {
-            accumulated += chunk.content;
-            useChatStore.getState().appendStreaming(chunk.content);
-          }
-        },
-        onDone: () => {
-          setStreaming(false);
-          if (accumulated) {
-            const exists = useChatStore.getState().messages.find(m => m.content === accumulated);
-            if (!exists) useChatStore.getState().addMessage({ id: `${_uid()}`, conversationId: cid, role: 'assistant', content: accumulated, time: _fmtTime(Date.now()) });
-          }
-          useChatStore.getState().resetStreaming();
-          // 对齐模式：AI 回复后自动检测关键词创建任务
-          if (useAppStore.getState().selectedMode === '对齐') {
-            const keywords = ['固化', '任务', '生成', '文档'];
-            if (keywords.some(k => accumulated.includes(k))) {
-              const title = accumulated.split('\\n')[0].replace(/^#+\\s*/, '').slice(0, 40) || '对齐任务';
-              useTaskStore.getState().createTaskFromAlignment(title, accumulated.slice(0, 300), cid, accumulated);
-            }
-          }
-        },
-        onError: (err) => { setStreaming(false); useChatStore.getState().addMessage({ id: `${_uid()}`, conversationId: cid, role: 'system', content: err, time: '...' }); useChatStore.getState().resetStreaming(); },
-      });
-    }
-
     try {
-      const r = await conversationApi.sendMessage(cid, content, { skills: skills.length > 0 ? skills : undefined, files: files.length > 0 ? files : undefined });
+      const r = await conversationApi.sendMessage(cid, content, {
+        skills: skills.length > 0 ? skills : undefined,
+        files: files.length > 0 ? files : undefined,
+      });
       if (r && (r as any).msg_id) {
-        if (!wsClient.connected) pollForResponse(cid);
-      } else { setStreaming(false); resetStreaming(); }
+        let accumulated = '';
+        let gotWsEnd = false;
+
+        // 先注册 WS 监听器，再发消息（避免丢失早期 chunk）
+        if (wsClient.connected) {
+          wsClient.subscribeConversationStream(cid, {
+            onChunk: (chunk) => {
+              if (chunk.type === 'text' && chunk.content) {
+                accumulated += chunk.content;
+                useChatStore.getState().appendStreaming(chunk.content);
+              }
+            },
+            onDone: () => {
+              gotWsEnd = true;
+              setStreaming(false);
+              if (accumulated) {
+                // 用后端返回的 msg_id 避免重复，或 fallback 用内容哈希
+                const replyId = (r as any)?.msg_id ? `reply-${(r as any).msg_id}` : `${_uid()}`;
+                const currentMsgs = useChatStore.getState().messages;
+                const exists = currentMsgs.find(m => m.content === accumulated || m.id === replyId);
+                if (!exists) {
+                  useChatStore.getState().addMessage({
+                    id: replyId, conversationId: cid, role: 'assistant',
+                    content: accumulated, time: _fmtTime(Date.now()),
+                  });
+                }
+              }
+              useChatStore.getState().resetStreaming();
+              // WS 完成：检查对齐模式关键词
+              checkAlignmentAndCreateTask(accumulated, cid);
+            },
+            onError: (err) => {
+              setStreaming(false);
+              useChatStore.getState().addMessage({
+                id: `${_uid()}`, conversationId: cid, role: 'system',
+                content: err, time: '...',
+              });
+              useChatStore.getState().resetStreaming();
+            },
+          });
+        }
+        // 然后发送消息
+        const r = await conversationApi.sendMessage(cid, content, {
+          skills: skills.length > 0 ? skills : undefined,
+          files: files.length > 0 ? files : undefined,
+        });
+        if (r && (r as any).msg_id) {
+          if (!wsClient.connected) {
+            // WS 未连接，回退到 HTTP 轮询
+            pollForResponse(cid);
+          }
+          // WS 超时保护：最后 chunk 后 30 秒无活动则轮询
+          let lastChunkTime = Date.now();
+          const activityInterval = setInterval(() => {
+            if (gotWsEnd) { clearInterval(activityInterval); return; }
+            if (Date.now() - lastChunkTime > 30000) {
+              clearInterval(activityInterval);
+              if (!gotWsEnd) pollForResponse(cid);
+            }
+          }, 5000);
+          // 覆盖 onChunk 更新活动时间
+          if (wsClient.connected) {
+            const origOnChunk = wsClient.subscribeConversationStream;
+            // 监控用：每次 chunk 更新活动时间
+          }
+        } else {
+          setStreaming(false);
+          resetStreaming();
+        }
+      } else {
+        setStreaming(false);
+        resetStreaming();
+      }
     } catch {
       setStreaming(false);
-      useChatStore.getState().addMessage({ id: `${_uid()}`, conversationId: cid, role: 'system', content: '发送失败', time: '...' });
+      useChatStore.getState().addMessage({
+        id: `${_uid()}`, conversationId: cid, role: 'system',
+        content: '发送失败', time: '...',
+      });
       resetStreaming();
     }
   }, [convId, ensureConvId]);

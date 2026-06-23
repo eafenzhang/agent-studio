@@ -9,6 +9,7 @@ export class WsClient {
   private handlers = new Map<string, Set<EventHandler>>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private _connected = false;
+  private _connecting = false;
   private _convStreamHandlers = new Map<string, Set<(chunk: StreamChunk) => void>>();
   private _convEndHandlers = new Map<string, Set<() => void>>();
   private _convErrorHandlers = new Map<string, Set<(err: string) => void>>();
@@ -16,12 +17,17 @@ export class WsClient {
   get connected() { return this._connected; }
 
   connect(): Promise<void> {
+    if (this._connecting) return Promise.reject(new Error('already connecting'));
+    this._connecting = true;
     return new Promise((resolve, reject) => {
-      if (this.ws?.readyState === WebSocket.OPEN) { resolve(); return; }
+      if (this.ws?.readyState === WebSocket.OPEN) { this._connecting = false; resolve(); return; }
+      // 清理旧 WS 的 onclose 避免重连竞争
+      if (this.ws) { this.ws.onclose = null; this.ws.onerror = null; }
       this.ws = new WebSocket(WS_URL);
 
       this.ws.onopen = () => {
         this._connected = true;
+        this._connecting = false;
         resolve();
       };
 
@@ -65,9 +71,10 @@ export class WsClient {
 
       this.ws.onclose = () => {
         this._connected = false;
+        this._connecting = false;
         this.scheduleReconnect();
       };
-      this.ws.onerror = () => reject(new Error('WebSocket connection failed'));
+      this.ws.onerror = () => { this._connecting = false; reject(new Error('WebSocket connection failed')); };
     });
   }
 
