@@ -166,14 +166,39 @@ export const ConversationDetail: React.FC = () => {
     resetStreaming();
   }, []);
 
+  // ── 获取真实 convId（没有则创建） ──
+  const ensureConvId = useCallback(async () => {
+    if (convId) return convId;
+    const title = conversationTitle || '新对话';
+    const agentId = useAppStore.getState().selectedAgentId;
+    const created = await conversationApi.create(title, agentId);
+    if (created?.id) {
+      setConvId(created.id);
+      // 更新 appStore 中的 ID
+      useAppStore.getState().openConversation(title, created.id);
+      return created.id;
+    }
+    return null;
+  }, [convId, conversationTitle]);
+
   // ── 用户发送消息 ──
   const handleSend = useCallback(async (content: string) => {
     if (!content.trim()) return;
-    const cid = convId || `conv-${Date.now()}`;
-    if (!convId) setConvId(cid);
 
-    const appState = useAppStore.getState();
-    const skills = appState.selectedSkills;
+    // 确保有真实 convId
+    let cid = convId;
+    if (!cid) {
+      cid = await ensureConvId();
+      if (!cid) {
+        useChatStore.getState().addMessage({
+          id: `err-${Date.now()}`, conversationId: '?', role: 'system',
+          content: '创建会话失败，请重试', time: '...',
+        });
+        return;
+      }
+    }
+
+    const skills = useAppStore.getState().selectedSkills;
     useChatStore.getState().addMessage({
       id: `msg-${Date.now()}`, conversationId: cid, role: 'user', content,
       time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
@@ -199,7 +224,7 @@ export const ConversationDetail: React.FC = () => {
       });
       resetStreaming();
     }
-  }, [convId]);
+  }, [convId, ensureConvId]);
 
   return (
     <div className="conversation-detail active">
