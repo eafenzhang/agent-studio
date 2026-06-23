@@ -7,16 +7,46 @@ import { TaskCard } from '../ui/TaskCard';
 import { conversationApi } from '../../services/api';
 import { useTaskStore } from '../../stores/taskStore';
 
+// ── 消息类型映射 ──
+const MSG_TYPES: Record<string, string> = {
+  text: 'assistant', tips: 'system', tool_call: 'assistant',
+  thinking: 'system', plan: 'assistant', agent_status: 'system',
+  permission: 'system', tool_group: 'assistant',
+};
+
 // ── 将后端消息映射为前端 Message ──
 function mapMessages(items: any[], cid: string) {
   return items.map((m: any) => {
     const c = m.content || {};
+    const role = m.position === 'right' ? 'user' : (MSG_TYPES[m.type] || 'assistant');
+    let content = typeof c === 'string' ? c : (c.content || '');
+    // 特殊类型格式化
+    if (m.type === 'tool_call') {
+      content = `🔧 **工具调用**: ${c.name || c.function?.name || '未知'}\n\`\`\`json\n${JSON.stringify(c.args || c.arguments || {}, null, 2)}\n\`\`\``;
+    } else if (m.type === 'thinking') {
+      content = `💭 *${content || '思考中...'}*`;
+    } else if (m.type === 'plan') {
+      content = `📋 **计划**:\n${content}`;
+    } else if (m.type === 'agent_status') {
+      content = `⏳ ${content || '处理中...'}`;
+    } else if (m.type === 'permission') {
+      content = `🔐 **需要确认**: ${content || c.message || ''}`;
+    } else if (m.type === 'tips' && c.code) {
+      content = content || c.details || '系统提示';
+    }
     return {
-      id: m.id || m.msg_id || `m-${Date.now()}`,
+      id: m.id || m.msg_id || `m-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       conversationId: m.conversation_id || cid,
-      role: m.position === 'right' ? 'user' : (m.type === 'tips' ? 'system' : 'assistant'),
-      content: typeof c === 'string' ? c : (c.content || JSON.stringify(c)),
+      role,
+      type: m.type,
+      content: content || JSON.stringify(c),
       time: m.created_at ? new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '',
+      toolCalls: m.type === 'tool_call' ? [{
+        id: m.id || '',
+        name: c.name || c.function?.name || '',
+        args: JSON.stringify(c.args || c.arguments || {}),
+        status: 'completed' as const,
+      }] : undefined,
     };
   }) as import('../../types').Message[];
 }
@@ -121,7 +151,7 @@ export const ConversationDetail: React.FC = () => {
     });
   }, [convId]);
 
-  // ── 轮询等待 AI 回复 ──
+  // ── 轮询等待 AI 回复（使用 mapMessages 统一处理所有类型） ──
   const pollForResponse = useCallback(async (cid: string) => {
     for (let i = 0; i < 40; i++) {
       await new Promise(r => setTimeout(r, 2000));
@@ -131,33 +161,16 @@ export const ConversationDetail: React.FC = () => {
         if (items.length === 0) continue;
 
         const current = useChatStore.getState().messages;
+        // 使用 mapMessages 统一处理所有消息类型
+        const mapped = mapMessages(items, cid);
         let foundReply = false;
 
-        for (const m of items) {
-          const mid = m.id || m.msg_id;
-          if (!mid || current.find(c => c.id === mid)) continue;
-          const c = m.content || {};
-          const text = typeof c === 'string' ? c : (c.content || '');
-          if (m.position === 'right') continue;
-
-          if (m.type === 'tips' && c.code) {
-            useChatStore.getState().addMessage({
-              id: mid, conversationId: cid, role: 'system',
-              content: text || (c.details || 'AI 处理出错'),
-              time: m.created_at ? new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '',
-            });
-            foundReply = true;
-            break;
-          }
-          if (m.type === 'text' && text) {
-            useChatStore.getState().addMessage({
-              id: mid, conversationId: cid, role: 'assistant',
-              content: text,
-              time: m.created_at ? new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '',
-            });
-            foundReply = true;
-            break;
-          }
+        for (const msg of mapped) {
+          if (current.find(c => c.id === msg.id)) continue;
+          if (msg.role === 'user') continue;
+          useChatStore.getState().addMessage(msg);
+          foundReply = true;
+          break; // 一次只添加一条新消息，避免乱序
         }
         if (foundReply) break;
       } catch { break; }

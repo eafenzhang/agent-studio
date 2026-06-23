@@ -22,6 +22,7 @@ export interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
   time: string;
+  type?: string;
   toolCalls?: ToolCall[];
 }
 
