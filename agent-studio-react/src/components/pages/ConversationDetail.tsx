@@ -316,22 +316,26 @@ export const ConversationDetail: React.FC = () => {
                 <div className={`msg-avatar ${msg.role === 'user' ? 'human' : msg.role === 'assistant' ? 'bot' : 'system'}`}>
                   {msg.role === 'user' ? 'U' : msg.role === 'assistant' ? 'A' : '!'}
                 </div>
-                <div>
-                  <div className={`msg-bubble ${msg.role}`}><StreamingText content={msg.content} /></div>
-                  <div className="msg-time" style={msg.role === 'user' ? { textAlign: 'right' } : undefined}>{msg.time}</div>
-                  {/* AI 回复后显示操作按钮 */}
-                  {msg.role === 'assistant' && msg.content.length > 20 && (
-                    <div style={{ marginTop: 4, display: 'flex', gap: 4 }}>
-                      <TaskSuggestButton content={msg.content} msgId={msg.id} convId={convId || ''} />
-                      <ThoughtButton content={msg.content} />
-                    </div>
-                  )}
-                  {/* 用户消息也可保存想法 */}
-                  {msg.role === 'user' && msg.content.length > 10 && (
-                    <div style={{ marginTop: 2 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div className={`msg-bubble ${msg.role}`}>
+                    <StreamingText content={msg.content} />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3, padding: '0 2px' }}>
+                    <span className="msg-time">{msg.time}</span>
+                    <button className="msg-action-btn" onClick={() => { navigator.clipboard.writeText(msg.content); }} title="复制">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="12" height="12" strokeLinecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    </button>
+                    {/* AI 回复后显示任务/想法按钮 */}
+                    {msg.role === 'assistant' && msg.content.length > 20 && (
+                      <>
+                        <TaskSuggestButton content={msg.content} msgId={msg.id} convId={convId || ''} />
+                        <ThoughtButton content={msg.content} />
+                      </>
+                    )}
+                    {msg.role === 'user' && msg.content.length > 10 && (
                       <ThoughtButton content={msg.content} compact />
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
               {/* 显示与消息关联的任务 */}
