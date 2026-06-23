@@ -6,9 +6,14 @@ interface AppState {
   sidebarCollapsed: boolean;
   settingsOpen: boolean;
   conversationTitle: string | null;
-  /** 当前会话 ID（直接传递，避免重复查找） */
   conversationId: string | null;
   selectedAgentId: string;
+  /** 当前选中的模式: 行动/规划/自主 */
+  selectedMode: string;
+  /** 当前选中的技能列表 */
+  selectedSkills: string[];
+  /** 当前选中的专家/助手 ID */
+  selectedAssistantId: string | null;
 
   switchPage: (page: PageId) => void;
   toggleSidebar: () => void;
@@ -17,6 +22,9 @@ interface AppState {
   openConversation: (title: string, id?: string) => void;
   closeConversation: () => void;
   setSelectedAgentId: (id: string) => void;
+  setSelectedMode: (mode: string) => void;
+  setSelectedSkills: (skills: string[]) => void;
+  setSelectedAssistantId: (id: string | null) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -26,6 +34,9 @@ export const useAppStore = create<AppState>((set) => ({
   conversationTitle: null,
   conversationId: null,
   selectedAgentId: '632f31d2',
+  selectedMode: '行动',
+  selectedSkills: [],
+  selectedAssistantId: null,
 
   switchPage: (page) => set({ activePage: page, conversationTitle: null, conversationId: null }),
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
@@ -34,4 +45,7 @@ export const useAppStore = create<AppState>((set) => ({
   openConversation: (title, id) => set({ conversationTitle: title, conversationId: id || null, activePage: 'conversation' }),
   closeConversation: () => set({ conversationTitle: null, conversationId: null }),
   setSelectedAgentId: (id) => set({ selectedAgentId: id }),
+  setSelectedMode: (mode) => set({ selectedMode: mode }),
+  setSelectedSkills: (skills) => set({ selectedSkills: skills }),
+  setSelectedAssistantId: (id) => set({ selectedAssistantId: id }),
 }));

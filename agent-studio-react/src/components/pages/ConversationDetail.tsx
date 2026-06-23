@@ -132,6 +132,10 @@ export const ConversationDetail: React.FC = () => {
     const cid = convId || `conv-${Date.now()}`;
     if (!convId) setConvId(cid);
 
+    // 从全局 store 读取当前选中的技能和附件
+    const appState = useAppStore.getState();
+    const skills = appState.selectedSkills;
+
     useChatStore.getState().addMessage({
       id: `msg-${Date.now()}`, conversationId: cid, role: 'user', content,
       time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
@@ -140,7 +144,9 @@ export const ConversationDetail: React.FC = () => {
     resetStreaming();
 
     try {
-      const r = await conversationApi.sendMessage(cid, content);
+      const r = await conversationApi.sendMessage(cid, content, {
+        skills: skills.length > 0 ? skills : undefined,
+      });
       if (r && (r as any).msg_id) {
         pollForResponse(cid);
       } else {

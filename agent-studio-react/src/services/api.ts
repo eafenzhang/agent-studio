@@ -75,8 +75,15 @@ export const conversationApi = {
   },
   delete: (id: string) => request<void>(`/api/conversations/${id}`, { method: 'DELETE' }),
   messages: (id: string) => request<ConversationMessageList>(`/api/conversations/${id}/messages`),
-  sendMessage: (id: string, content: string) =>
-    request<MessageSendResult>(`/api/conversations/${id}/messages`, { method: 'POST', body: JSON.stringify({ content }) }),
+  sendMessage: (id: string, content: string, options?: { files?: string[]; skills?: string[] }) =>
+    request<MessageSendResult>(`/api/conversations/${id}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({
+        content,
+        ...(options?.files?.length ? { files: options.files } : {}),
+        ...(options?.skills?.length ? { inject_skills: options.skills } : {}),
+      }),
+    }),
   artifacts: (id: string) => request<ArtifactItem[]>(`/api/conversations/${id}/artifacts`),
   cancel: (id: string) => request<void>(`/api/conversations/${id}/cancel`, { method: 'POST' }),
 };

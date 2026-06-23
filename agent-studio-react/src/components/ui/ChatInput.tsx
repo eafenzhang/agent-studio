@@ -22,9 +22,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 }) => {
   const agentId = useAppStore((s) => s.selectedAgentId);
   const setAgentId = useAppStore((s) => s.setSelectedAgentId);
-  const [mode, setMode] = useState('行动');
+  const selectedMode = useAppStore((s) => s.selectedMode);
+  const setSelectedMode = useAppStore((s) => s.setSelectedMode);
+  const selectedSkills = useAppStore((s) => s.selectedSkills);
+  const setSelectedSkills = useAppStore((s) => s.setSelectedSkills);
   const [model, setModel] = useState('');
-  const [activeTools, setActiveTools] = useState<string[]>([]);
   const [input, setInput] = useState('');
   const [modeOptions] = useState(fallbackModes);
 
@@ -82,10 +84,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     if (input.trim() && onSend) { onSend(input); setInput(''); }
   };
 
-  const handleToolToggle = (tool: string) => {
-    setActiveTools(prev => prev.includes(tool) ? prev.filter(t => t !== tool) : [...prev, tool]);
-  };
-
   const toolSectionItems = toolOptions.length > 0
     ? toolOptions.map(t => ({ label: t }))
     : [{ label: '暂无可用工具' }];
@@ -121,10 +119,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               <Dropdown trigger={
                 <button className="chat-toolbar-btn chat-toolbar-btn-primary">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
-                  <span>{mode}</span>{caretSvg}
+                  <span>{selectedMode}</span>{caretSvg}
                 </button>
               } sections={[{ items: modeOptions.map(o => ({ label: o })) }]}
-                activeValue={mode} onSelect={setMode} />
+                activeValue={selectedMode} onSelect={setSelectedMode} />
             ) : (
               <button className="chat-toolbar-btn chat-toolbar-btn-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>行动</button>
             )}
@@ -140,10 +138,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             <Dropdown trigger={
               <button className="chat-toolbar-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-                工具<span className="chat-toolbar-badge">{activeTools.length}</span>{caretSvg}
+                工具<span className="chat-toolbar-badge">{selectedSkills.length}</span>{caretSvg}
               </button>
             } sections={[{ sectionLabel: '技能', items: toolSectionItems }]}
-              multiSelect activeValues={activeTools} onToggle={handleToolToggle} />
+              multiSelect activeValues={selectedSkills} onToggle={(v) => {
+                const next = selectedSkills.includes(v) ? selectedSkills.filter(t => t !== v) : [...selectedSkills, v];
+                setSelectedSkills(next);
+              }} />
 
             {!hideAgentSelector && agentOptions.length > 0 && (
               <Dropdown trigger={
