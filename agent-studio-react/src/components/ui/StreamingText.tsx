@@ -1,18 +1,13 @@
 import React, { useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
 
 interface StreamingTextProps {
   content: string;
   isStreaming?: boolean;
 }
 
-/**
- * 流式文本渲染组件
- *
- * 支持 Markdown 渲染（GFM 表格、代码块等）。
- * 流式追加时自动滚动到底部。
- */
 export const StreamingText: React.FC<StreamingTextProps> = ({
   content,
   isStreaming = false,
@@ -31,6 +26,7 @@ export const StreamingText: React.FC<StreamingTextProps> = ({
     <div className="streaming-text">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeHighlight]}
         components={{
           code({ className, children, ...props }) {
             const isInline = !className;
