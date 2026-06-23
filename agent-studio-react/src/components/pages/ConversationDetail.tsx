@@ -5,6 +5,7 @@ import { ChatInput } from '../ui/ChatInput';
 import { StreamingText } from '../ui/StreamingText';
 import { TaskCard } from '../ui/TaskCard';
 import { conversationApi } from '../../services/api';
+import { wsClient } from '../../services/ws';
 import { useTaskStore } from '../../stores/taskStore';
 
 // ── 消息类型映射 ──
@@ -243,7 +244,44 @@ export const ConversationDetail: React.FC = () => {
         files: files.length > 0 ? files : undefined,
       });
       if (r && (r as any).msg_id) {
-        pollForResponse(cid);
+        let accumulated = '';
+        let gotWsEnd = false;
+
+        // 优先使用 WS 流式（如果已连接）
+        if (wsClient.connected) {
+          wsClient.subscribeConversationStream(cid, {
+            onChunk: (chunk) => {
+              if (chunk.type === 'text' && chunk.content) {
+                accumulated += chunk.content;
+                useChatStore.getState().appendStreaming(chunk.content);
+              }
+            },
+            onDone: () => {
+              gotWsEnd = true;
+              setStreaming(false);
+              if (accumulated) {
+                useChatStore.getState().addMessage({
+                  id: `ws-${Date.now()}`, conversationId: cid, role: 'assistant',
+                  content: accumulated, time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+                });
+              }
+              useChatStore.getState().resetStreaming();
+            },
+            onError: (err) => {
+              setStreaming(false);
+              useChatStore.getState().addMessage({
+                id: `err-${Date.now()}`, conversationId: cid, role: 'system',
+                content: err, time: '...',
+              });
+              useChatStore.getState().resetStreaming();
+            },
+          });
+          // WS 超时保护：如果 60 秒后 WS 没结束，回退到轮询
+          setTimeout(() => { if (!gotWsEnd) pollForResponse(cid); }, 60000);
+        } else {
+          // WS 未连接，回退到 HTTP 轮询
+          pollForResponse(cid);
+        }
       } else {
         setStreaming(false);
         resetStreaming();
