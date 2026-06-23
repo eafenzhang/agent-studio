@@ -161,7 +161,7 @@ export interface ArtifactItem { id: string; name: string; type?: string; size?: 
 export interface AgentItem { id: string; name: string; description: string; enabled?: boolean }
 export interface AssistantItem { id: string; name: string; description?: string; enabled: boolean; source: string; preset_agent_type: string; enabled_skills: string[]; custom_skill_names: string[]; models: string[] }
 export interface MessageSendResult { msg_id: string; turn_id: string; runtime: Record<string, unknown> }
-export interface ConversationMessageList { items: any[]; total: number; has_more?: boolean }
+export interface ConversationMessageList { items: any[]; total: number; has_more: boolean }
 export interface SystemInfo { cache_dir: string; work_dir: string; log_dir: string; platform: string; arch: string }
 export interface SystemSettings { language: string; notification_enabled: boolean; cron_notification_enabled: boolean; command_queue_enabled: boolean; save_upload_to_workspace: boolean }
 export interface ProviderItem { id: string; name: string; type: string; enabled?: boolean }

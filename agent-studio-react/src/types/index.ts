@@ -25,6 +25,7 @@ export interface Message {
   type?: string;
   toolCalls?: ToolCall[];
   files?: { name: string; path: string }[];
+  status?: 'sending' | 'sent' | 'failed';
 }
 
 export interface ToolCall {

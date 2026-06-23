@@ -8,6 +8,11 @@ import { conversationApi } from '../../services/api';
 import { wsClient } from '../../services/ws';
 import { useTaskStore } from '../../stores/taskStore';
 
+let _msgCounter = 0;
+const _uid = () => `msg-${Date.now()}-${++_msgCounter}`;
+const _fmtTime = (ts?: number) =>
+  ts ? new Date(ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '';
+
 // ── 消息类型映射 ──
 const MSG_TYPES: Record<string, string> = {
   text: 'assistant', tips: 'system', tool_call: 'assistant',
@@ -36,12 +41,12 @@ function mapMessages(items: any[], cid: string) {
       content = content || c.details || '系统提示';
     }
     return {
-      id: m.id || m.msg_id || `m-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      id: m.id || m.msg_id || `${_uid()}-${Math.random().toString(36).slice(2, 6)}`,
       conversationId: m.conversation_id || cid,
       role,
       type: m.type,
       content: content || JSON.stringify(c),
-      time: m.created_at ? new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '',
+      time: m.created_at ? _fmtTime(m.created_at) : '',
       toolCalls: m.type === 'tool_call' ? [{
         id: m.id || '',
         name: c.name || c.function?.name || '',
@@ -132,8 +137,8 @@ export const ConversationDetail: React.FC = () => {
     // 先不清除 pendingMessage，成功后清除
     const store = useChatStore.getState();
     store.addMessage({
-      id: `msg-${Date.now()}`, conversationId: convId, role: 'user', content: msg,
-      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      id: `${_uid()}`, conversationId: convId, role: 'user', content: msg,
+      time: _fmtTime(Date.now()),
     });
     store.setStreaming(true);
     store.resetStreaming();
@@ -154,7 +159,7 @@ export const ConversationDetail: React.FC = () => {
       sentRef.current = false;
       useChatStore.getState().setStreaming(false);
       useChatStore.getState().addMessage({
-        id: `err-${Date.now()}`, conversationId: convId, role: 'system',
+        id: `${_uid()}`, conversationId: convId, role: 'system',
         content: '发送失败，请重试', time: '...',
       });
       useChatStore.getState().resetStreaming();
@@ -220,7 +225,7 @@ export const ConversationDetail: React.FC = () => {
       cid = await ensureConvId();
       if (!cid) {
         useChatStore.getState().addMessage({
-          id: `err-${Date.now()}`, conversationId: '?', role: 'system',
+          id: `${_uid()}`, conversationId: '?', role: 'system',
           content: '创建会话失败，请重试', time: '...',
         });
         return;
@@ -231,8 +236,8 @@ export const ConversationDetail: React.FC = () => {
     const files = useChatStore.getState().pendingFiles;
     useChatStore.getState().setPendingFiles([]); // 消费后清除
     useChatStore.getState().addMessage({
-      id: `msg-${Date.now()}`, conversationId: cid, role: 'user', content,
-      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      id: `${_uid()}`, conversationId: cid, role: 'user', content,
+      time: _fmtTime(Date.now()),
       files: files.length > 0 ? files.map(p => ({ name: p.split('/').pop() || p, path: p })) : undefined,
     });
     setStreaming(true);
@@ -262,7 +267,7 @@ export const ConversationDetail: React.FC = () => {
               if (accumulated) {
                 useChatStore.getState().addMessage({
                   id: `ws-${Date.now()}`, conversationId: cid, role: 'assistant',
-                  content: accumulated, time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+                  content: accumulated, time: _fmtTime(Date.now()),
                 });
               }
               useChatStore.getState().resetStreaming();
@@ -270,7 +275,7 @@ export const ConversationDetail: React.FC = () => {
             onError: (err) => {
               setStreaming(false);
               useChatStore.getState().addMessage({
-                id: `err-${Date.now()}`, conversationId: cid, role: 'system',
+                id: `${_uid()}`, conversationId: cid, role: 'system',
                 content: err, time: '...',
               });
               useChatStore.getState().resetStreaming();
@@ -289,7 +294,7 @@ export const ConversationDetail: React.FC = () => {
     } catch {
       setStreaming(false);
       useChatStore.getState().addMessage({
-        id: `err-${Date.now()}`, conversationId: cid, role: 'system',
+        id: `${_uid()}`, conversationId: cid, role: 'system',
         content: '发送失败', time: '...',
       });
       resetStreaming();
