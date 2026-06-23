@@ -1,6 +1,6 @@
 [package]
 name = "agent-studio"
-version = "1.0.9"
+version = "1.0.10"
 description = "Agent Studio - AI Creative Workspace"
 authors = ["Agent Studio Team"]
 edition = "2021"
