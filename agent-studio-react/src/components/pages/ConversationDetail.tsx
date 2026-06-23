@@ -7,6 +7,7 @@ import { TaskCard } from '../ui/TaskCard';
 import { conversationApi } from '../../services/api';
 import { wsClient } from '../../services/ws';
 import { useTaskStore } from '../../stores/taskStore';
+import { useThoughtStore } from '../../stores/thoughtStore';
 
 let _msgCounter = 0;
 const _uid = () => `msg-${Date.now()}-${++_msgCounter}`;
@@ -318,10 +319,17 @@ export const ConversationDetail: React.FC = () => {
                 <div>
                   <div className={`msg-bubble ${msg.role}`}><StreamingText content={msg.content} /></div>
                   <div className="msg-time" style={msg.role === 'user' ? { textAlign: 'right' } : undefined}>{msg.time}</div>
-                  {/* AI 回复后显示任务创建入口 */}
+                  {/* AI 回复后显示操作按钮 */}
                   {msg.role === 'assistant' && msg.content.length > 20 && (
-                    <div style={{ marginTop: 4 }}>
+                    <div style={{ marginTop: 4, display: 'flex', gap: 4 }}>
                       <TaskSuggestButton content={msg.content} msgId={msg.id} convId={convId || ''} />
+                      <ThoughtButton content={msg.content} />
+                    </div>
+                  )}
+                  {/* 用户消息也可保存想法 */}
+                  {msg.role === 'user' && msg.content.length > 10 && (
+                    <div style={{ marginTop: 2 }}>
+                      <ThoughtButton content={msg.content} compact />
                     </div>
                   )}
                 </div>
@@ -402,5 +410,25 @@ const TaskSuggestButton: React.FC<{ content: string; msgId: string; convId: stri
         </div>
       )}
     </div>
+  );
+};
+
+// ── 保存想法按钮 ──
+const ThoughtButton: React.FC<{ content: string; compact?: boolean }> = ({ content, compact }) => {
+  const addThought = useThoughtStore((s) => s.addThought);
+  const [saved, setSaved] = React.useState(false);
+  return (
+    <button onClick={() => {
+      addThought({ content: content.slice(0, 500), source: 'conversation' });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }} style={{
+      padding: compact ? '1px 6px' : '2px 8px', borderRadius: 4, fontSize: compact ? 10 : 10,
+      border: '1px solid var(--cb-border)', background: saved ? 'rgba(0,185,107,0.1)' : 'transparent',
+      cursor: 'pointer', color: saved ? 'var(--cb-switch-active-bg)' : 'var(--cb-text-secondary)',
+      whiteSpace: 'nowrap',
+    }}>
+      {saved ? '✅ 已保存' : '💡 记下想法'}
+    </button>
   );
 };

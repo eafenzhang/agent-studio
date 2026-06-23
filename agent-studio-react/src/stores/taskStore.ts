@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 export interface TaskItem {
   id: string;
@@ -17,32 +18,48 @@ interface TaskState {
   addTask: (task: TaskItem) => void;
   updateTask: (id: string, updates: Partial<TaskItem>) => void;
   removeTask: (id: string) => void;
-  /** 将对话消息转化为任务 */
   createTaskFromMessage: (title: string, description: string, conversationId?: string) => string;
+  advanceStep: (id: string) => void;
 }
 
-export const useTaskStore = create<TaskState>((set, get) => ({
-  tasks: [],
+export const useTaskStore = create<TaskState>()(
+  persist(
+    (set, get) => ({
+      tasks: [],
 
-  addTask: (task) => set((s) => ({ tasks: [...s.tasks, task] })),
+      addTask: (task) => set((s) => ({ tasks: [...s.tasks, task] })),
 
-  updateTask: (id, updates) => set((s) => ({
-    tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...updates } : t)),
-  })),
+      updateTask: (id, updates) => set((s) => ({
+        tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...updates } : t)),
+      })),
 
-  removeTask: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) })),
+      removeTask: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) })),
 
-  createTaskFromMessage: (title, description, conversationId) => {
-    const id = `task-${Date.now()}`;
-    get().addTask({
-      id,
-      title,
-      description,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-      source: 'alignment',
-      conversationId,
-    });
-    return id;
-  },
-}));
+      createTaskFromMessage: (title, description, conversationId) => {
+        const id = `task-${Date.now()}`;
+        get().addTask({
+          id, title, description,
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+          source: 'alignment',
+          conversationId,
+        });
+        return id;
+      },
+
+      advanceStep: (id) => set((s) => ({
+        tasks: s.tasks.map((t) => {
+          if (t.id !== id) return t;
+          const nextStep = (t.currentStep || 0) + 1;
+          const isLast = !t.steps || nextStep >= t.steps.length;
+          return {
+            ...t,
+            currentStep: nextStep,
+            status: isLast ? 'completed' : 'in_progress',
+          };
+        }),
+      })),
+    }),
+    { name: 'agent-studio-tasks' },
+  ),
+);
