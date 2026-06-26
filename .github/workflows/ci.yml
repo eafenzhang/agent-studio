@@ -1,6 +1,6 @@
 name: CI
 
-on: [push, pull_request]
+on: [pull_request]
 
 jobs:
   test:
@@ -10,11 +10,9 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
-      - run: npm --version && node --version
       - run: npm install --no-audit --no-fund
       - run: npm run typecheck
       - run: npm test
-      - run: npm run build
 
   e2e:
     runs-on: ubuntu-latest
@@ -24,7 +22,6 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
-      - run: npm --version && node --version
       - run: npm install --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
       - run: npm run build

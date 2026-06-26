@@ -17,6 +17,27 @@ jobs:
         uses: actions/setup-node@v6
         with: { node-version: '22' }
 
+      - name: Bump version
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+          NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+          echo "NEW_VERSION=v$NEW_VERSION" >> "$GITHUB_ENV"
+          echo "Bumping: $VERSION -> $NEW_VERSION"
+
+          node -e "
+            ['package.json',
+             'src-tauri/tauri.conf.json'].forEach(f => {
+              let c = require('fs').readFileSync(f,'utf8');
+              c = c.replace(/\"version\": \"[0-9.]+\"/g, '\"version\": \"$NEW_VERSION\"');
+              require('fs').writeFileSync(f,c);
+            });
+            let c = require('fs').readFileSync('src-tauri/Cargo.toml','utf8');
+            c = c.replace(/^version = \"[0-9.]+\"/m, 'version = \"$NEW_VERSION\"');
+            require('fs').writeFileSync('src-tauri/Cargo.toml',c);
+          "
+
       - name: Install frontend dependencies
         run: npm install --no-audit --no-fund
 
@@ -51,7 +72,7 @@ jobs:
       - name: Build Tauri
         run: npm run tauri build
 
-      - name: Verify installer size
+      - name: Verify installer
         shell: pwsh
         run: |
           $installers = Get-ChildItem "src-tauri/target/release/bundle/nsis/*.exe" -ErrorAction SilentlyContinue
@@ -59,22 +80,12 @@ jobs:
           foreach ($inst in $installers) {
             $size = [math]::Round($inst.Length/1MB, 1)
             Write-Host "📦 $($inst.Name): $size MB"
-            if ($inst.Length -gt 15MB) {
-              $valid = $true
-              Write-Host "✅ Installer size OK (>15MB)"
-            } else {
-              Write-Host "⚠️  Installer too small (<15MB), resources may not be bundled"
-            }
+            if ($inst.Length -gt 15MB) { $valid = $true; $global:InstallerName = $inst.Name }
           }
-          # Also check MSI
           Get-ChildItem "src-tauri/target/release/bundle/msi/*.msi" -ErrorAction SilentlyContinue | ForEach-Object {
-            $size = [math]::Round($_.Length/1MB, 1)
-            Write-Host "📦 MSI $($_.Name): $size MB"
+            Write-Host "📦 MSI $($_.Name): $([math]::Round($_.Length/1MB, 1)) MB"
           }
-          if (-not $valid) {
-            Write-Host "❌ No valid installer found (>15MB)"
-            exit 1
-          }
+          if (-not $valid) { Write-Host "❌ No valid installer >15MB found"; exit 1 }
 
       - name: Upload installer (NSIS)
         uses: actions/upload-artifact@v4
@@ -94,6 +105,8 @@ jobs:
     if: github.ref == 'refs/heads/master'
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Download NSIS installer
         uses: actions/download-artifact@v4
@@ -108,40 +121,23 @@ jobs:
       - name: Verify downloaded installer
         shell: bash
         run: |
-          ls -la *.exe *.msi 2>/dev/null || echo "No installer files found"
+          ls -la *.exe *.msi 2>/dev/null
           INSTALLER=$(ls *.exe 2>/dev/null | head -1)
           if [ -n "$INSTALLER" ]; then
             SIZE=$(stat -c%s "$INSTALLER" 2>/dev/null || wc -c < "$INSTALLER")
-            if [ "$SIZE" -lt 15000000 ]; then
-              echo "❌ Installer too small ($SIZE bytes), aborting release"
-              exit 1
-            fi
-            echo "✅ Installer size OK ($(($SIZE/1048576)) MB)"
+            [ "$SIZE" -lt 15000000 ] && { echo "❌ Installer too small"; exit 1; }
+            echo "✅ Installer: $(($SIZE/1048576)) MB"
           fi
 
-      - name: Bump version and release
+      - name: Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
-          NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "Releasing v$NEW_VERSION"
 
-          # Bump version in all config files
-          node -e "
-            ['package.json',
-             'src-tauri/tauri.conf.json'].forEach(f => {
-              let c = require('fs').readFileSync(f,'utf8');
-              c = c.replace(/\"version\": \"$VERSION\"/g, '\"version\": \"$NEW_VERSION\"');
-              require('fs').writeFileSync(f,c);
-            });
-            let c = require('fs').readFileSync('src-tauri/Cargo.toml','utf8');
-            c = c.replace(/^version = \"$VERSION\"/m, 'version = \"$NEW_VERSION\"');
-            require('fs').writeFileSync('src-tauri/Cargo.toml',c);
-          "
-
-          # Commit, tag, release
+          # Commit version bump from build step
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
@@ -150,17 +146,34 @@ jobs:
           git push origin master
           git push origin -f "v$NEW_VERSION"
 
-          NSIS_INSTALLER=$(ls *.exe 2>/dev/null | head -1)
-          MSI_INSTALLER=$(ls *.msi 2>/dev/null | head -1)
+          NSIS=$(ls *.exe 2>/dev/null | head -1)
+          MSI=$(ls *.msi 2>/dev/null | head -1)
 
-          if [ -n "$NSIS_INSTALLER" ]; then
-            RELEASE_ARGS=("v$NEW_VERSION" "$NSIS_INSTALLER")
-            if [ -n "$MSI_INSTALLER" ]; then
-              RELEASE_ARGS+=("$MSI_INSTALLER")
-            fi
-            gh release create "${RELEASE_ARGS[@]}" \
-              --generate-notes || true
+          RELEASE_ARGS=("v$NEW_VERSION")
+          [ -n "$NSIS" ] && RELEASE_ARGS+=("$NSIS")
+          [ -n "$MSI" ] && RELEASE_ARGS+=("$MSI")
+
+          if [ -n "$NSIS" ] || [ -n "$MSI" ]; then
+            gh release create "${RELEASE_ARGS[@]}" --generate-notes || true
           else
-            echo "No installer found"
+            echo "❌ No installer found"
             gh release create "v$NEW_VERSION" --generate-notes || true
           fi
+
+          # Update latest.json for auto-updater
+          cat > latest.json << JSONEOF
+          {
+            "version": "$NEW_VERSION",
+            "notes": "Agent Studio v$NEW_VERSION",
+            "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "platforms": {
+              "windows-x86_64": {
+                "signature": "",
+                "url": "https://github.com/${{ github.repository }}/releases/download/v$NEW_VERSION/$NSIS"
+              }
+            }
+          }
+          JSONEOF
+          git add latest.json
+          git commit -m "chore: update latest.json for v$NEW_VERSION" || true
+          git push origin master

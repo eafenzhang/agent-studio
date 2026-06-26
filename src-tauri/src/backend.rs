@@ -125,6 +125,8 @@ pub fn start_backend(app_handle: &AppHandle) -> Result<(), BackendStartError> {
         .resource_dir()
         .map_err(|e| BackendStartError::ExecutableNotFound(e.to_string()))?;
     let bundled = resource_dir.join("aioncore.exe");
+    // In Tauri 2.x resources may preserve the source subpath
+    let bundled_sub = resource_dir.join("resources").join("aioncore.exe");
 
     // 2. Try alongside the app exe (portable / unbundled)
     let sidecar = std::env::current_exe()
@@ -139,6 +141,8 @@ pub fn start_backend(app_handle: &AppHandle) -> Result<(), BackendStartError> {
 
     let exe = if bundled.exists() {
         bundled
+    } else if bundled_sub.exists() {
+        bundled_sub
     } else if sidecar.exists() {
         sidecar
     } else if dev.exists() {
