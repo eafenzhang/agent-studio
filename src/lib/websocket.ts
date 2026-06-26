@@ -3,7 +3,7 @@
  * Manages real-time communication with the backend.
  */
 
-const WS_BASE_URL = 'ws://127.0.0.1:25808/ws';
+const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://127.0.0.1:25808/ws';
 const HEARTBEAT_INTERVAL = 25000;
 const RECONNECT_DELAY = 1000;
 const MAX_RECONNECT_ATTEMPTS = 10;
