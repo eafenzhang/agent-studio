@@ -38,6 +38,17 @@ jobs:
             require('fs').writeFileSync('src-tauri/Cargo.toml',c);
           "
 
+      - name: Save bumped version
+        shell: bash
+        run: node -p "require('./package.json').version" > version.txt
+
+      - name: Upload version info
+        uses: actions/upload-artifact@v4
+        with:
+          name: version-info
+          path: version.txt
+          retention-days: 1
+
       - name: Install frontend dependencies
         run: npm install --no-audit --no-fund
 
@@ -108,6 +119,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Download version info
+        uses: actions/download-artifact@v4
+        with:
+          name: version-info
+
       - name: Download NSIS installer
         uses: actions/download-artifact@v4
         with:
@@ -134,10 +150,22 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          NEW_VERSION=$(node -p "require('./package.json').version")
+          NEW_VERSION=$(cat version.txt)
           echo "Releasing v$NEW_VERSION"
 
-          # Commit version bump from build step
+          # Bump version files to match the build version
+          node -e "
+            ['package.json',
+             'src-tauri/tauri.conf.json'].forEach(f => {
+              let c = require('fs').readFileSync(f,'utf8');
+              c = c.replace(/\"version\": \"[0-9.]+\"/g, '\"version\": \"$NEW_VERSION\"');
+              require('fs').writeFileSync(f,c);
+            });
+            let c = require('fs').readFileSync('src-tauri/Cargo.toml','utf8');
+            c = c.replace(/^version = \"[0-9.]+\"/m, 'version = \"$NEW_VERSION\"');
+            require('fs').writeFileSync('src-tauri/Cargo.toml',c);
+          "
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
