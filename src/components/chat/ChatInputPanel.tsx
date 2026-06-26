@@ -66,6 +66,19 @@ const MODE_OPTIONS: Array<{ label: string; value: string; description: string }>
   { label: '自主', value: 'research', description: '完全自主控制，无需人工干预' },
 ];
 
+const CATEGORIES = ['全部', '代码', '写作', '分析', '设计'] as const;
+type ExpertCategory = (typeof CATEGORIES)[number];
+
+/** Classify an expert into a category by name/description matching. */
+function classifyExpert(name: string, desc: string, tags?: string[]): ExpertCategory {
+  const text = `${name} ${desc} ${(tags || []).join(' ')}`.toLowerCase();
+  if (/代码|code|部署|编程|开发|工程|openclaw|cowork|aionui|文件规划|技术/i.test(text)) return '代码';
+  if (/写作|文案|论文|文章|内容|招聘|发布|角色扮演|故事|word|文档/i.test(text)) return '写作';
+  if (/分析|数据|仪表盘|财务|建模|ppt|演示|幻灯片|金融|模型/i.test(text)) return '分析';
+  if (/设计|ui|ux|mermaid|morph|3d|游戏|界面|视觉|路演|beautiful/i.test(text)) return '设计';
+  return '全部';
+}
+
 /** Get the display name for an assistant. */
 function getAssistantName(a: { name?: string; name_i18n?: Record<string, string> }): string {
   return (a.name_i18n && a.name_i18n['zh-CN']) || a.name || 'Unknown';
@@ -149,16 +162,32 @@ export default function ChatInputPanel({
     return result;
   }, [skills, mcpServers]);
 
+  // ---- Expert category filter ----
+  const [expertCategory, setExpertCategory] = useState<ExpertCategory>('全部');
+
   const expertOptions = useMemo(() => {
     if (!assistants || assistants.length === 0) return [];
-    // Filter out ACP tools (source === 'generated'), only show real experts
+    // Filter out ACP tools (source === 'generated')
     let list = assistants.filter((a) => a.source !== 'generated');
     if (list.length === 0) return [];
-    return list.slice(0, 12).map((a) => ({
+
+    // Apply category filter
+    if (expertCategory !== '全部') {
+      list = list.filter((a) => {
+        const name = getAssistantName(a);
+        const desc = a.description || '';
+        const tags = (a as any).tags || [];
+        return classifyExpert(name, desc, tags) === expertCategory;
+      });
+    }
+    // If filtered list is empty, fall back to showing all
+    const displayList = list.length > 0 ? list : assistants.filter((a) => a.source !== 'generated');
+
+    return displayList.slice(0, 12).map((a) => ({
       id: a.id,
       name: getAssistantName(a),
     }));
-  }, [assistants]);
+  }, [assistants, expertCategory]);
 
   // ACP (Agent Control Plane) tools — Aion CLI, Hermes, OpenCode
   // These are system-level agents with source === 'generated'
@@ -556,6 +585,63 @@ export default function ChatInputPanel({
                   <div className="chat-dropdown-section">暂无可选工具</div>
                 )}
               </div>
+            </div>
+
+            {/* ===== Expert Category Filter ===== */}
+            <div className="chat-dropdown" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat}
+                  className={`chat-toolbar-btn ${expertCategory === cat ? 'chat-toolbar-btn-active' : ''}`}
+                  onClick={() => setExpertCategory(cat)}
+                  style={{
+                    fontSize: 12,
+                    padding: '2px 8px',
+                    borderRadius: 6,
+                    fontWeight: expertCategory === cat ? 600 : 400,
+                    color: expertCategory === cat ? 'var(--cb-button-primary)' : 'var(--cb-text-secondary)',
+                    background: expertCategory === cat ? 'var(--accent-a8, rgba(108,77,255,0.08))' : 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {cat}
+                  {cat !== '全部' && expertCategory === cat && expertOptions.length > 0 && (
+                    <span style={{ marginLeft: 3, fontSize: 10, opacity: 0.6 }}>({expertOptions.length})</span>
+                  )}
+                </button>
+              ))}
+              {/* Expert dropdown — shows experts in selected category */}
+              {expertOptions.length > 0 && (
+                <div className="chat-dropdown" style={{ marginLeft: 4 }}>
+                  <button
+                    className="chat-toolbar-btn"
+                    onClick={() => dropdown.toggle('expert')}
+                    disabled={isGenerating}
+                    title="选择专家助手"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                      <circle cx="12" cy="8" r="5" />
+                      <path d="M3 21v-2a7 7 0 0 1 7-7h4a7 7 0 0 1 7 7v2" />
+                    </svg>
+                  </button>
+                  <div className={`chat-dropdown-menu ${dropdown.isOpen('expert') ? 'open' : ''}`}>
+                    {expertOptions.map((exp) => (
+                      <div
+                        key={exp.id}
+                        className={`chat-dropdown-item ${selectedExpert === exp.id ? 'active' : ''}`}
+                        onClick={() => { setSelectedExpert(exp.id); dropdown.close(); }}
+                      >
+                        <span className="chat-dropdown-item-label">{exp.name}</span>
+                        <svg className="chat-dropdown-item-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* ===== ACP (Agent Control Plane) — Aion CLI / Hermes / OpenCode ===== */}

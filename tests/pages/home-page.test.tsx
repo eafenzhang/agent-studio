@@ -86,10 +86,9 @@ describe('HomePage', () => {
     fireEvent.click(modeBtn);
     fireEvent.click(screen.getByText('规划'));
 
-    // Select expert via dropdown
-    const expertBtn = screen.getAllByText('专家')[0];
-    fireEvent.click(expertBtn);
-    // The dropdown item appears after the chips, so use the last match
+    // Select expert via dropdown (person icon button)
+    const expertBtn = document.querySelector('.chat-dropdown [title="选择专家助手"]') || screen.getAllByRole('button').filter(b => b.querySelector('svg')).find(b => b.parentElement?.className?.includes('chat-dropdown'));
+    if (expertBtn) fireEvent.click(expertBtn);
     const expertItems = screen.getAllByText('助手1');
     fireEvent.click(expertItems[expertItems.length - 1]);
 
