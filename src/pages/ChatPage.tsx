@@ -253,16 +253,11 @@ export default function ChatPage() {
       const options: Parameters<typeof send>[1] = {
         model: selectedModel || undefined,
         mode: selectedMode || undefined,
-        assistant_id: (selectedExpert && selectedMode !== 'action') ? selectedExpert : undefined,
+        assistant_id: selectedExpert || undefined,
         inject_skills,
         mcp_tools,
         tools: !inject_skills && !mcp_tools && selectedTools.length > 0 ? selectedTools : undefined,
       };
-
-      // If model selected and no expert, pass model as assistant_id for provider routing
-      if (!options.assistant_id && options.model) {
-        options.assistant_id = options.model;
-      }
 
       await send(text, options);
     },

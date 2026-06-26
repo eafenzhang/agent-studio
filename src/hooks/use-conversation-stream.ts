@@ -734,12 +734,6 @@ export function useConversationStream(
       if (options?.mcp_tools?.length) payload.mcp_tools = options.mcp_tools;
       if (options?.tools?.length) payload.tools = options.tools;
 
-      // If model is set but no assistant_id, use model name as assistant
-      // for AionCore v0.38+ provider routing
-      if (payload.model && !payload.assistant_id) {
-        payload.assistant_id = payload.model;
-      }
-
       // Send via REST
       let messageResult: Record<string, unknown>;
       try {

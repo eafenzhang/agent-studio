@@ -237,12 +237,7 @@ export default function HomePage() {
         const payload: Parameters<typeof api.sendMessage>[1] = { content: trimmed };
         if (selectedModel) payload.model = selectedModel;
         if (selectedMode) payload.mode = selectedMode;
-        // Action mode uses Aion CLI (ACP) automatically; other modes use selected expert
-        if (selectedExpert && selectedMode !== 'action') payload.assistant_id = selectedExpert;
-        // If action mode and a model is configured, set model for provider routing
-        if (!payload.assistant_id && payload.model) {
-          payload.assistant_id = payload.model;
-        }
+        if (selectedExpert) payload.assistant_id = selectedExpert;
 
         if (selectedTools.length > 0) {
           const categorized = splitTools(selectedTools);

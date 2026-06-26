@@ -153,24 +153,38 @@ export default function ChatInputPanel({
     if (!assistants || assistants.length === 0) return [];
     // Filter out ACP tools (source === 'generated'), only show real experts
     let list = assistants.filter((a) => a.source !== 'generated');
-
-    // Filter by mode: plan mode shows planning-related experts, research shows others
-    if (selectedMode === 'plan') {
-      list = list.filter((a) => {
-        const tags = (a as any).tags || [];
-        const name = getAssistantName(a).toLowerCase();
-        return tags.some((t: string) => /plan|规划|项目|project|任务|task/i.test(t)) ||
-               /plan|规划/i.test(name);
-      });
-      // Fallback: if no planning experts found, show all
-      if (list.length === 0) list = assistants.filter((a) => a.source !== 'generated');
-    }
-
+    if (list.length === 0) return [];
     return list.slice(0, 12).map((a) => ({
       id: a.id,
       name: getAssistantName(a),
     }));
-  }, [assistants, selectedMode]);
+  }, [assistants]);
+
+  // ACP (Agent Control Plane) tools — Aion CLI, Hermes, OpenCode
+  // These are system-level agents with source === 'generated'
+  const acpOptions = useMemo(() => {
+    if (!assistants || assistants.length === 0) return [{ id: 'bare:632f31d2', name: 'Aion CLI' }];
+    const acpList = assistants.filter((a) => a.source === 'generated');
+    if (acpList.length === 0) return [{ id: 'bare:632f31d2', name: 'Aion CLI' }];
+    return acpList.map((a) => ({
+      id: a.id,
+      name: getAssistantName(a),
+    }));
+  }, [assistants]);
+
+  // Auto-select Aion CLI on first load
+  const [acpInitialized, setAcpInitialized] = useState(false);
+  useEffect(() => {
+    if (!acpInitialized && acpOptions.length > 0) {
+      const aionCli = acpOptions.find((a) => /aion/i.test(a.name));
+      if (aionCli) {
+        setSelectedExpert(aionCli.id);
+      } else if (acpOptions[0]) {
+        setSelectedExpert(acpOptions[0].id);
+      }
+      setAcpInitialized(true);
+    }
+  }, [acpOptions, acpInitialized, setSelectedExpert]);
 
   // ===============================================================
   // Auto-resize textarea
@@ -544,42 +558,41 @@ export default function ChatInputPanel({
               </div>
             </div>
 
-            {/* ===== Expert (hidden in action mode — Aion CLI/ACP handles it) ===== */}
-            {selectedMode !== 'action' && (
+            {/* ===== ACP (Agent Control Plane) — Aion CLI / Hermes / OpenCode ===== */}
             <div className="chat-dropdown">
               <button
                 className="chat-toolbar-btn"
-                onClick={() => dropdown.toggle('expert')}
+                onClick={() => dropdown.toggle('acp')}
                 disabled={isGenerating}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                  <circle cx="12" cy="8" r="5" />
-                  <path d="M3 21v-2a7 7 0 0 1 7-7h4a7 7 0 0 1 7 7v2" />
+                  <rect x="2" y="3" width="20" height="14" rx="2" />
+                  <line x1="8" y1="21" x2="16" y2="21" />
+                  <line x1="12" y1="17" x2="12" y2="21" />
                 </svg>
                 {selectedExpert
-                  ? (expertOptions.find((e) => e.id === selectedExpert)?.name || '专家')
-                  : '专家'}
+                  ? (acpOptions.find((e) => e.id === selectedExpert)?.name || 'Aion CLI')
+                  : 'ACP'}
               </button>
-              <div className={`chat-dropdown-menu ${dropdown.isOpen('expert') ? 'open' : ''}`}>
-                {expertOptions.length > 0 ? (
-                  expertOptions.map((exp) => (
+              <div className={`chat-dropdown-menu ${dropdown.isOpen('acp') ? 'open' : ''}`}>
+                {acpOptions.length > 0 ? (
+                  acpOptions.map((acp) => (
                     <div
-                      key={exp.id}
-                      className={`chat-dropdown-item ${selectedExpert === exp.id ? 'active' : ''}`}
-                      onClick={() => { setSelectedExpert(exp.id); dropdown.close(); }}
+                      key={acp.id}
+                      className={`chat-dropdown-item ${selectedExpert === acp.id ? 'active' : ''}`}
+                      onClick={() => { setSelectedExpert(acp.id); dropdown.close(); }}
                     >
-                      <span className="chat-dropdown-item-label">{exp.name}</span>
+                      <span className="chat-dropdown-item-label">{acp.name}</span>
                       <svg className="chat-dropdown-item-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
                     </div>
                   ))
                 ) : (
-                  <div className="chat-dropdown-section">暂无可选专家</div>
+                  <div className="chat-dropdown-section">Aion CLI</div>
                 )}
               </div>
             </div>
-            )}
 
             <div className="chat-toolbar-spacer" />
 
