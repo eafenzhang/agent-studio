@@ -1,6 +1,6 @@
 {
   "name": "agent-studio-desktop",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "description": "Agent Studio Desktop - AI Agent Workstation",
   "type": "module",
   "scripts": {
