@@ -18,7 +18,7 @@ jobs:
         with: { node-version: '22' }
 
       - name: Install frontend dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Build frontend
         run: npm run build
