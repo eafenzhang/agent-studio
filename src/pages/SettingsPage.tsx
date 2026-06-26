@@ -175,8 +175,13 @@ export default function SettingsPage() {
   };
 
   const handleSaveProvider = async () => {
-    if (!presetName || !dialogApiKey) {
-      addToast('请选择供应商并填写 API Key', 'warning');
+    if (!presetName) {
+      addToast('请选择供应商', 'warning');
+      return;
+    }
+    // When editing, allow empty key (keep existing). For new providers, key is required.
+    if (!editProvider && !dialogApiKey) {
+      addToast('请填写 API Key', 'warning');
       return;
     }
     const preset = PRESET_PROVIDERS.find((p) => p.name === presetName);
@@ -201,28 +206,24 @@ export default function SettingsPage() {
 
       if (editProvider) {
         await api.updateProvider(editProvider.id, payload);
-      } else {
-        await createProvider.mutateAsync(payload);
-      }
-
-      // After saving, try to fetch models from the API
-      try {
-        const savedId = editProvider?.id;
-        if (savedId) {
-          await api.fetchProviderModels(savedId);
-        } else {
-          // For new providers, invalidate and wait for list to refresh, then fetch
-          await queryClient.invalidateQueries({ queryKey: ['providers'] });
-          await new Promise((r) => setTimeout(r, 500));
-          const freshProviders = queryClient.getQueryData<any[]>(['providers']);
-          if (freshProviders && freshProviders.length > 0) {
-            const newest = freshProviders[freshProviders.length - 1];
-            if (newest.id) await api.fetchProviderModels(newest.id);
-          }
+        // After saving update, try to fetch models
+        try {
+          await api.fetchProviderModels(editProvider.id);
+          addToast('已保存并尝试获取模型列表', 'success');
+        } catch {
+          addToast('已保存，但自动获取模型列表失败，可稍后手动点击"获取模型"', 'info');
         }
-        addToast('已保存并尝试获取模型列表', 'success');
-      } catch {
-        addToast('已保存，但自动获取模型列表失败，可稍后手动点击"获取模型"', 'info');
+      } else {
+        const created = await createProvider.mutateAsync(payload);
+        // For new providers, fetch models directly using the returned ID
+        try {
+          if (created.id) {
+            await api.fetchProviderModels(created.id);
+          }
+          addToast('已保存并尝试获取模型列表', 'success');
+        } catch {
+          addToast('已保存，但自动获取模型列表失败，可稍后手动点击"获取模型"', 'info');
+        }
       }
 
       setDialogOpen(false);
@@ -721,8 +722,13 @@ export default function SettingsPage() {
                   }}
                   value={dialogApiKey}
                   onChange={(e) => setDialogApiKey(e.target.value)}
-                  placeholder="sk-..."
+                  placeholder={editProvider ? '留空则保留已有 Key（如需修改请填入新 Key）' : 'sk-...'}
                 />
+                {editProvider && !dialogApiKey && (
+                  <div style={{ fontSize: 11, color: 'var(--wb-color-text-disabled)', marginTop: 3 }}>
+                    Key 字段为空时将保留现有密钥
+                  </div>
+                )}
               </div>
 
               {/* Model count preview */}

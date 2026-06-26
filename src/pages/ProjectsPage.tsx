@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../stores/ui-store';
+import { showConfirm } from "../components/ui/ConfirmModal";
 import { useProjects, useCreateProject, useUpdateProject, useDeleteProject } from '../hooks/use-api';
 import type { Project } from '../types/api';
 
@@ -144,7 +145,7 @@ export default function ProjectsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm(t('chat.deleteConv'))) return;
+    if (!await showConfirm(t('chat.deleteConv'))) return;
     try {
       if (usingLocalFallback || error) {
         const next = localProjects.filter((p) => p.id !== id);

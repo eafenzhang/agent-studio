@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useUIStore } from '../stores/ui-store';
 import { useQueryClient } from '@tanstack/react-query';
 
-type ArtifactTab = 'results' | 'cloud';
+type ArtifactTab = 'results';
 
 interface ArtifactItem {
   id: string;
@@ -90,7 +90,7 @@ export default function ArtifactsPage() {
   const queryClient = useQueryClient();
   const { data, isLoading, isError, error } = useArtifacts();
 
-  const [activeTab, setActiveTab] = useState<ArtifactTab>('results');
+  const [activeTab] = useState<ArtifactTab>('results');
   const [searchText, setSearchText] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [filterOpen, setFilterOpen] = useState(false);
@@ -175,17 +175,8 @@ export default function ArtifactsPage() {
       )}
 
       <div className="artifacts-tabs">
-        <button
-          className={`artifact-tab ${activeTab === 'results' ? 'active' : ''}`}
-          onClick={() => setActiveTab('results')}
-        >
+        <button className="artifact-tab active">
           任务成果
-        </button>
-        <button
-          className={`artifact-tab ${activeTab === 'cloud' ? 'active' : ''}`}
-          onClick={() => setActiveTab('cloud')}
-        >
-          云端网盘
         </button>
       </div>
 

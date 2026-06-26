@@ -165,21 +165,6 @@ export default function ChatInputPanel({
     return Array.from(new Set(fromProviders));
   }, [providers]);
 
-  const toolOptions = useMemo(() => {
-    const result: Array<{ label: string; id: string; type: 'skill' | 'mcp' }> = [];
-    if (skills && skills.length > 0) {
-      skills.forEach((s) => {
-        if (s.id) result.push({ label: s.name || s.id, id: s.id, type: 'skill' });
-      });
-    }
-    if (mcpServers && mcpServers.length > 0) {
-      mcpServers.forEach((m) => {
-        if (m.id) result.push({ label: m.name || m.id, id: m.id, type: 'mcp' });
-      });
-    }
-    return result;
-  }, [skills, mcpServers]);
-
   // ---- Expert category filter (from parent component's chips)
   const [localExpertCategory, setLocalExpertCategory] = useState<ExpertCategory>('全部');
   const expertCategory = expertCategoryProp ?? localExpertCategory;
@@ -333,10 +318,19 @@ export default function ChatInputPanel({
       const content = evt.target?.result as string;
       if (!content) return;
 
+      // For images, strip the data URL prefix to get raw base64
+      let fileContent = content;
+      if (fileType === 'image') {
+        const commaIdx = content.indexOf(',');
+        if (commaIdx >= 0) {
+          fileContent = content.substring(commaIdx + 1);
+        }
+      }
+
       // Write file to workspace via backend
       const workspacePath = `uploads/${Date.now()}-${file.name}`;
       try {
-        await api.writeFile({ path: workspacePath, content });
+        await api.writeFile({ path: workspacePath, content: fileContent });
         setAttachedFiles((prev) => [...prev, { name: file.name, path: workspacePath, type: fileType }]);
         addToast(`已添加文件: ${file.name}`, 'success');
       } catch (err) {

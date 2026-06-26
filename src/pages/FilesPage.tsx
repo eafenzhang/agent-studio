@@ -86,7 +86,8 @@ export default function FilesPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await api.listWorkspaceFiles({ root: dir });
+      // Send '.' for root instead of empty string to avoid backend rejection
+      const result = await api.listWorkspaceFiles({ root: dir || '.' });
       const files = (result as any).files as Array<{ name?: string; path?: string; is_dir?: boolean; size?: number; modified_at?: string }> || [];
       setEntries(files.map((f) => ({
         name: f.name || '',
@@ -125,10 +126,20 @@ export default function FilesPage() {
     try {
       const result = await api.readFile({ path: file.path });
       const content = (result as any).content || (result as any).data || '';
+      // Binary file detection (null bytes or high non-printable ratio)
+      let isBinary = false;
+      const checkLen = Math.min(content.length, 4096);
+      if (checkLen > 0) {
+        let nulls = 0;
+        for (let i = 0; i < checkLen; i++) {
+          if (content.charCodeAt(i) === 0) nulls++;
+        }
+        isBinary = nulls > checkLen * 0.01;
+      }
       setEditor({
         path: file.path,
         name: file.name,
-        content,
+        content: isBinary ? '[二进制文件，无法编辑]\n请在外部应用中打开此文件。' : content,
         originalContent: content,
         isDirty: false,
       });
