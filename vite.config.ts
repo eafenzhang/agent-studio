@@ -14,7 +14,6 @@ export default defineConfig({
       input: resolve(__dirname, 'src/index.html'),
       output: {
         manualChunks: {
-          'vendor-mui': ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-query': ['@tanstack/react-query'],
           'vendor-i18n': ['i18next', 'react-i18next'],
