@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import ConversationList from './ConversationList';
 import { useUIStore } from '../../stores/ui-store';
 import { useTaskStepsStore } from '../../stores/task-store';
+import { useAgentStore } from '../../stores/agent-store';
 
 interface NavItem {
   id: string;
@@ -62,6 +63,8 @@ export default function Sidebar() {
   const [filterMode, setFilterMode] = useState<'all' | 'tasks'>('all');
   const activeTaskConvs = useTaskStepsStore((s) => s.getActiveTaskConvs());
   const taskConvCount = activeTaskConvs.length;
+  const activeAgents = useAgentStore((s) => s.getActiveAgents());
+  const agentCount = activeAgents.length;
 
   const isActive = (path: string): boolean => {
     if (path === '/') return location.pathname === '/';
@@ -157,6 +160,65 @@ export default function Sidebar() {
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
         </div>
+
+        {/* Active agents bar */}
+        {agentCount > 0 && (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+            marginTop: 6,
+            padding: '4px 0',
+            borderTop: '1px solid var(--cb-border-subtle)',
+          }}>
+            <div style={{
+              fontSize: 10,
+              fontWeight: 600,
+              color: 'var(--wb-color-text-disabled)',
+              padding: '2px 0',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+            }}>
+              运行中 Agent ({agentCount})
+            </div>
+            {activeAgents.slice(0, 4).map((agent) => (
+              <div
+                key={agent.convId}
+                onClick={() => navigate(`/chat/${agent.convId}`)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '3px 8px',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  color: 'var(--cb-text-primary)',
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--wb-todo-menu-bg-hover)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+              >
+                <span style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  background: '#22c55e',
+                  flexShrink: 0,
+                  animation: 'pulse 1.5s ease-in-out infinite',
+                }} />
+                <span style={{ fontWeight: 500, color: 'var(--cb-button-primary)' }}>{agent.agentName}</span>
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--cb-text-secondary)' }}>
+                  {agent.convTitle.slice(0, 20)}
+                </span>
+              </div>
+            ))}
+            {agentCount > 4 && (
+              <div style={{ fontSize: 11, color: 'var(--wb-color-text-disabled)', padding: '2px 8px' }}>
+                +{agentCount - 4} 更多
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Task filter toggle */}
         {taskConvCount > 0 && (

@@ -4,6 +4,7 @@ import Sidebar from '../sidebar/Sidebar';
 import ThemeToggle from '../ui/ThemeToggle';
 import { useConversation } from '../../hooks/use-api';
 import { useUIStore } from '../../stores/ui-store';
+import { useAgentStore } from '../../stores/agent-store';
 import { useEffect } from 'react';
 import * as api from '../../lib/api';
 import { wsClient } from '../../lib/websocket';
@@ -25,6 +26,7 @@ export default function Layout() {
   const addToast = useUIStore((s) => s.addToast);
   const openTabs = useUIStore((s) => s.openTabs);
   const closeTab = useUIStore((s) => s.closeTab);
+  const activeAgents = useAgentStore((s) => s.activeAgents);
 
   const isChat = location.pathname.startsWith('/chat/');
 
@@ -167,6 +169,17 @@ export default function Layout() {
                     flexShrink: 0,
                   }}
                 >
+                  {/* Active agent indicator dot */}
+                  {activeAgents[tab.conversationId] && (
+                    <span style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      background: '#22c55e',
+                      flexShrink: 0,
+                      display: 'inline-block',
+                    }} />
+                  )}
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{tab.title}</span>
                   <button
                     onClick={(e) => { e.stopPropagation(); closeTab(idx); }}

@@ -52,25 +52,60 @@ jobs:
           REPO="${{ github.repository }}"
           echo "Creating release for $REPO tag: $TAG"
 
-          # Write release notes to temp file
+          # Write release notes
           cat > /tmp/release-notes.md << 'EOF'
-          ## Agent Studio ${{ github.ref_name }}
+          ## Agent Studio v${{ github.ref_name }}
 
-          ### ✨ 新功能
-          - 任务中心 — 创建、管理、追踪 AI 任务
-          - 增强聊天渲染 — 代码块复制、推理链展示
-          - 会话模式定义 — 行动 / 规划 / 自主
-          - Agent 多轮自思考支持（thinking/tips/plan 事件）
+          ### 🎯 对话系统
+          - 实时流式通信 — WebSocket message.stream 协议，支持多轮 agent 续写
+          - 消息操作 — 复制、重新生成、编辑后重发、删除
+          - 对话重命名 — 双击列表 / 右键 / 点击标题
+          - 自动标题生成 — 首次回复后自动命名（1s 防抖）
+          - 多标签页切换 — Tab bar + 关闭按钮
+          - 会话搜索 — 服务端全文搜索
 
-          ### 🔧 架构改进
-          - 会话模块重构 — 统一 WS 协议、消除数据双写
-          - WebSocket 事件对齐后端真实 message.stream 协议
-          - 共享 ChatInputPanel 组件（消除 400 行重复代码）
-          - ThinkingBlock 组件展示 Agent 推理链
+          ### 🤖 Agent 能力
+          - 审批工作流 — Agent 请求工具调用时弹窗审批（允许/拒绝/始终允许）
+          - Tool call 120s 超时 — 自动标记超时工具为 error
+          - Agent 交接可视化 — agent_status 事件驱动的交接横幅 + 侧边栏运行面板
+          - 并行 Agent — 跨对话追踪多 Agent 活动状态
+          - 运行时统计 — 每次回复显示耗时、工具调用次数
 
-          ### 🐛 Bug 修复
-          - TaskProgressPanel 空状态/假步骤
-          - 删除 300+ 行死代码（chat-service.js / ChatInput.tsx）
+          ### 🎨 AI 内容渲染
+          - Mermaid 图表 — 动态渲染流程图/时序图/甘特图（懒加载）
+          - HTML 预览 — iframe 沙箱预览 AI 生成的 HTML 文档
+          - 图片灯箱 — 点击全屏放大
+          - 30+ 行代码自动折叠 +「展开全部」
+          - GFM 任务列表复选框
+          - Diff 视图 — 文件修改前后对比（统一/分栏双模式）
+          - 思维链显示 — Agent 推理过程可折叠展示（上限 20 块）
+
+          ### 🔧 工具与集成
+          - MCP 服务器 CRUD — 名称/命令/参数/环境变量配置
+          - 技能启用/禁用开关
+          - 文件/图片上传 — FileReader + 后端写入
+          - 工作区文件浏览器 — 目录树 + 文本编辑器
+          - 模型提供商管理 — DeepSeek/Qwen/GLM/OpenAI 等预设
+          - Ollama 兼容 — 自定义 URL 配置本地模型
+
+          ### 📦 应用管理
+          - 专家列表 — 分类筛选、头像渲染
+          - 项目管理 — API + localStorage 双模式
+          - 产物管理 — 类型筛选 + 内容预览
+          - 记忆管理 — 查看/删除
+          - 系统设置 — 主题/语言/快捷键/真实版本检查
+          - 连接状态指示器 — 30s 健康检查 + 实时 WS 状态
+          - 任务步骤持久化 + 侧边栏过滤
+
+          ### 🛠 架构改进
+          - React 18 + TypeScript + Zustand 全面重写
+          - 移除 15+ 遗留 JS 文件（~6500 行死代码）
+          - chatStore sessionStorage 持久化
+          - WS 连接时序修复 + 旧版事件去重
+          - 工具分类共享逻辑（lib/tools.ts）
+          - i18n 全覆盖（zh/en）
+          - 30 个 Playwright E2E 测试
+          - 零 TypeScript 错误
           EOF
 
           # Find installer
@@ -89,7 +124,7 @@ jobs:
               --title "Agent Studio $TAG" \
               --notes-file /tmp/release-notes.md
           else
-            echo "No installer found, listing bundle dir:"
+            echo "No installer found"
             find src-tauri/target/release/bundle -type f 2>/dev/null || echo "bundle dir not found"
             gh release create "$TAG" \
               --repo "$REPO" \

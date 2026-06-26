@@ -27,11 +27,13 @@ import * as api from '../lib/api';
 import { splitTools } from '../lib/tools';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTaskStepsStore } from '../stores/task-store';
+import { useAgentStore } from '../stores/agent-store';
 import MessageBubble from '../components/chat/MessageBubble';
 import ChatInputPanel from '../components/chat/ChatInputPanel';
 import ToolCallCard from '../components/chat/ToolCallCard';
 import TaskProgressPanel from '../components/chat/TaskProgressPanel';
 import ThinkingBlock from '../components/chat/ThinkingBlock';
+import PermissionDialog from '../components/chat/PermissionDialog';
 
 // ===================================================================
 // Types
@@ -88,8 +90,14 @@ export default function ChatPage() {
     isConnected,
     turnId,
     continuationCount,
+    pendingPermissions,
+    lastTurnStats,
+    currentAgentName,
     send,
     cancel,
+    approvePermission,
+    rejectPermission,
+    approveAlways,
   } = useConversationStream(convId || '');
 
   // ---- Local state ----
@@ -108,6 +116,10 @@ export default function ChatPage() {
   const selectedMode = useUIStore((s) => s.selectedMode);
   const selectedExpert = useUIStore((s) => s.selectedExpert);
   const selectedTools = useUIStore((s) => s.selectedTools);
+
+  // ---- Agent handoff tracking ----
+  const recentHandoffs = useAgentStore((s) => s.handoffs.filter((h) => h.convId === convId));
+  const latestHandoff = recentHandoffs.length > 0 ? recentHandoffs[0] : null;
 
   // ===============================================================
   // Merge API history into localMessages (preserving streaming state)
@@ -427,6 +439,67 @@ export default function ChatPage() {
         <TaskProgressPanel convId={convId || ''} steps={allTaskSteps} isStreaming={isStreaming} />
       )}
 
+      {/* Pending Permission Dialogs */}
+      {pendingPermissions.length > 0 && (
+        <div style={{
+          flexShrink: 0,
+          borderBottom: '1px solid rgba(245,158,11,0.2)',
+          padding: '4px 0',
+          background: 'rgba(245,158,11,0.02)',
+        }}>
+          <div style={{
+            fontSize: 11,
+            fontWeight: 600,
+            color: '#d97706',
+            padding: '4px 20px 0',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+          }}>
+            Agent 请求执行以下操作
+          </div>
+          {pendingPermissions.map((perm) => (
+            <PermissionDialog
+              key={perm.id}
+              request={perm}
+              onApprove={approvePermission}
+              onReject={rejectPermission}
+              onApproveAlways={(id) => approveAlways(id, perm.toolName)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Agent handoff notification */}
+      {latestHandoff && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '6px 20px',
+            fontSize: 12,
+            color: 'var(--cb-text-secondary)',
+            background: 'rgba(108,77,255,0.04)',
+            borderBottom: '1px solid rgba(108,77,255,0.1)',
+            flexShrink: 0,
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--cb-button-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M16 3h5v5" />
+            <path d="M8 3H3v5" />
+            <path d="M3 16v5h5" />
+            <path d="M21 16v5h-5" />
+          </svg>
+          <span>
+            Agent 交接: <strong>{latestHandoff.from}</strong>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ verticalAlign: 'middle', margin: '0 4px' }}>
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+            <strong>{latestHandoff.to}</strong>
+          </span>
+        </div>
+      )}
+
       {/* Conversation header */}
       <div
         style={{
@@ -470,6 +543,25 @@ export default function ChatPage() {
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
             </svg>
+            {/* Current agent indicator */}
+            {currentAgentName && (
+              <span style={{
+                fontSize: 11,
+                padding: '1px 8px',
+                borderRadius: 10,
+                background: 'rgba(108,77,255,0.1)',
+                color: 'var(--cb-button-primary)',
+                fontWeight: 500,
+                marginLeft: 4,
+                whiteSpace: 'nowrap',
+              }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ verticalAlign: 'middle', marginRight: 3 }}>
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                {currentAgentName}
+              </span>
+            )}
           </div>
         )}
         <div style={{ display: 'flex', gap: 4 }}>
@@ -658,6 +750,27 @@ export default function ChatPage() {
             )}
 
             <div ref={messagesEndRef} />
+
+            {/* Turn stats */}
+            {lastTurnStats && !isStreaming && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '4px 20px',
+                  fontSize: 11,
+                  color: 'var(--wb-color-text-disabled)',
+                  justifyContent: 'center',
+                }}
+              >
+                <span>⏱ {lastTurnStats.runtime}</span>
+                <span>🔧 {lastTurnStats.toolCallCount} 次工具调用</span>
+                {lastTurnStats.turnId && (
+                  <span># {lastTurnStats.turnId.slice(0, 8)}</span>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>

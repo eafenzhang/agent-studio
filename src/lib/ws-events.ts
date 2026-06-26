@@ -134,6 +134,17 @@ export interface PlanEventData {
   plan?: string;
 }
 
+/** `permission` — agent requests permission to execute an action */
+export interface PermissionEventData {
+  permission_id?: string;
+  tool_call_id?: string;
+  tool_name?: string;
+  arguments?: Record<string, unknown>;
+  description?: string;
+  reason?: string;
+  auto_approve?: boolean;
+}
+
 // ===================================================================
 // Dispatched Event Union
 // ===================================================================
@@ -147,6 +158,7 @@ export type DispatchedAgentEvent =
   | { type: typeof AGENT_EVENT_TYPES.ERROR; data: ErrorEventData; envelope: MessageStreamEnvelope }
   | { type: typeof AGENT_EVENT_TYPES.AGENT_STATUS; data: AgentStatusEventData; envelope: MessageStreamEnvelope }
   | { type: typeof AGENT_EVENT_TYPES.PLAN; data: PlanEventData; envelope: MessageStreamEnvelope }
+  | { type: typeof AGENT_EVENT_TYPES.PERMISSION; data: PermissionEventData; envelope: MessageStreamEnvelope }
   | { type: string; data: Record<string, unknown>; envelope: MessageStreamEnvelope }; // fallback for unknown types
 
 // ===================================================================
@@ -266,4 +278,21 @@ export function getFinishStatus(data: Record<string, unknown>): string {
 /** Extract artifacts from a `finish` event. */
 export function getFinishArtifacts(data: Record<string, unknown>): Array<{ id?: string; name?: string; type?: string }> {
   return (data.artifacts as Array<{ id?: string; name?: string; type?: string }>) ?? [];
+}
+
+/** Extract permission request info from a `permission` event. */
+export function getPermissionInfo(data: Record<string, unknown>): {
+  permissionId: string;
+  toolName: string;
+  args: Record<string, unknown>;
+  description: string;
+  reason: string;
+} {
+  return {
+    permissionId: (data.permission_id as string) ?? (data.tool_call_id as string) ?? `perm-${Date.now()}`,
+    toolName: (data.tool_name as string) ?? 'unknown',
+    args: (data.arguments as Record<string, unknown>) ?? {},
+    description: (data.description as string) ?? '',
+    reason: (data.reason as string) ?? '',
+  };
 }

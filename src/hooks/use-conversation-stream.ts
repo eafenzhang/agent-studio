@@ -22,6 +22,7 @@ import { wsClient } from '../lib/websocket';
 import * as api from '../lib/api';
 import { useChatStore } from '../stores/chat-store';
 import { useUIStore } from '../stores/ui-store';
+import { useAgentStore } from '../stores/agent-store';
 import type { ToolCall, TaskStep } from '../types/api';
 import {
   WS_EVENTS,
@@ -34,6 +35,7 @@ import {
   getErrorInfo,
   getFinishStatus,
   getFinishArtifacts,
+  getPermissionInfo,
   AGENT_EVENT_TYPES,
 } from '../lib/ws-events';
 import type { DispatchedAgentEvent } from '../lib/ws-events';
@@ -76,6 +78,26 @@ export interface ConversationStreamState {
   turnId: string | null;
   /** How many times this turn has auto-continued. */
   continuationCount: number;
+  /** Pending permission requests awaiting user approval. */
+  pendingPermissions: PermissionRequest[];
+  /** Stats from the last completed turn. */
+  lastTurnStats: TurnStats | null;
+  /** Name of the currently active agent (from agent_status event). */
+  currentAgentName: string | null;
+}
+
+export interface TurnStats {
+  runtime: string;
+  toolCallCount: number;
+  turnId: string;
+}
+
+export interface PermissionRequest {
+  id: string;
+  toolName: string;
+  args: Record<string, unknown>;
+  description: string;
+  reason: string;
 }
 
 export interface UseConversationStreamReturn extends ConversationStreamState {
@@ -83,6 +105,12 @@ export interface UseConversationStreamReturn extends ConversationStreamState {
   send: (text: string, options?: SendOptions) => Promise<string | null>;
   /** Cancel the current generation. */
   cancel: () => Promise<void>;
+  /** Approve a pending permission request. */
+  approvePermission: (permissionId: string) => void;
+  /** Reject a pending permission request. */
+  rejectPermission: (permissionId: string) => void;
+  /** Approve this tool name for the entire session. */
+  approveAlways: (permissionId: string, toolName: string) => void;
 }
 
 const WS_CONNECT_TIMEOUT_MS = 8_000;
@@ -141,6 +169,20 @@ export function useConversationStream(
   const hasMessageStreamRef = useRef(false);
   const toolCallTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const TOOL_CALL_TIMEOUT_MS = 120_000;
+
+  // ---- Permission state ----
+  const [pendingPermissions, setPendingPermissions] = useState<PermissionRequest[]>([]);
+  const autoApprovedRef = useRef<Set<string>>(new Set());
+
+  // ---- Turn stats ----
+  const [lastTurnStats, setLastTurnStats] = useState<TurnStats | null>(null);
+  const toolCallCountRef = useRef(0);
+  const currentRuntimeRef = useRef('');
+
+  // ---- Current agent tracking ----
+  const [currentAgentName, setCurrentAgentName] = useState<string | null>(null);
+  const agentStoreSetStatus = useAgentStore((s) => s.setAgentStatus);
+  const agentStoreClear = useAgentStore((s) => s.clearAgent);
 
   // ===============================================================
   // rAF-batched content updates
@@ -333,6 +375,7 @@ export function useConversationStream(
             if (activeMsgIdRef.current) {
               chatAddToolCall(convId, activeMsgIdRef.current, tc);
             }
+            toolCallCountRef.current++;
             // Set 120s timeout for this tool call
             const prevTimer = toolCallTimersRef.current.get(tcId);
             if (prevTimer) clearTimeout(prevTimer);
@@ -372,8 +415,15 @@ export function useConversationStream(
           if (activeMsgIdRef.current) {
             chatFlushMessage(convId, activeMsgIdRef.current);
           }
+          // Record turn stats
+          setLastTurnStats({
+            runtime: currentRuntimeRef.current || 'unknown',
+            toolCallCount: toolCallCountRef.current,
+            turnId: turnIdRef.current || '',
+          });
           stopStreaming();
           cleanupListeners();
+          agentStoreClear(convId);
           break;
         }
 
@@ -388,14 +438,57 @@ export function useConversationStream(
           }
           addToast(errMsg, 'error');
           cleanupListeners();
+          agentStoreClear(convId);
           activeMsgIdRef.current = null;
           break;
         }
 
         // ============ AGENT_STATUS ============
         case AGENT_EVENT_TYPES.AGENT_STATUS: {
-          // Agent status changes (e.g., mode switch, agent handoff)
-          // Currently informational only — could update an agent indicator
+          const agentName = (data.agent_name as string) || '';
+          const agentStatus = (data.status as string) || 'running';
+          if (agentName) {
+            setCurrentAgentName(agentName);
+            agentStoreSetStatus(convId, agentName, agentStatus, convId);
+          }
+          break;
+        }
+
+        // ============ PERMISSION ============
+        case AGENT_EVENT_TYPES.PERMISSION:
+        case AGENT_EVENT_TYPES.ACP_PERMISSION: {
+          // Agent requests permission to execute an action
+          const perm = getPermissionInfo(data);
+          // If auto-approved (session-level), convert to a tool call immediately
+          if (autoApprovedRef.current.has(perm.toolName)) {
+            // Auto-approved — emit as synchronous tool call
+            const autoTc: ToolCall = {
+              id: perm.permissionId,
+              name: perm.toolName,
+              args: perm.args,
+              status: 'running',
+              startedAt: Date.now(),
+            };
+            setToolCalls((prev) => [...prev, autoTc]);
+            if (activeMsgIdRef.current) {
+              chatAddToolCall(convId, activeMsgIdRef.current, autoTc);
+            }
+            // Send approval via WS
+            $wsClient.send('permission_response', {
+              permission_id: perm.permissionId,
+              conversation_id: envelope.conversation_id,
+              approved: true,
+            });
+          } else {
+            // Add to pending permissions — map permissionId → id
+            setPendingPermissions((prev) => [...prev, {
+              id: perm.permissionId,
+              toolName: perm.toolName,
+              args: perm.args,
+              description: perm.description,
+              reason: perm.reason,
+            }]);
+          }
           break;
         }
 
@@ -660,6 +753,11 @@ export function useConversationStream(
         `msg-${Date.now()}`;
       activeMsgIdRef.current = messageId;
 
+      // Capture runtime from this turn
+      const runtimeStr = (messageResult.runtime as string) ?? '';
+      if (runtimeStr) currentRuntimeRef.current = runtimeStr;
+      toolCallCountRef.current = 0;
+
       // Persist to chatStore for cross-navigation continuity
       chatStartStreaming(convId, messageId);
 
@@ -689,6 +787,40 @@ export function useConversationStream(
   }, [convId, cleanupListeners, stopStreaming, chatSetError]);
 
   // ===============================================================
+  // Permission approval/rejection
+  // ===============================================================
+
+  const approvePermission = useCallback((permissionId: string) => {
+    setPendingPermissions((prev) => prev.filter((p) => p.id !== permissionId));
+    // Send approval via WS
+    $wsClient.send('permission_response', {
+      permission_id: permissionId,
+      conversation_id: convId,
+      approved: true,
+    });
+  }, [convId, $wsClient]);
+
+  const rejectPermission = useCallback((permissionId: string) => {
+    setPendingPermissions((prev) => prev.filter((p) => p.id !== permissionId));
+    // Send rejection via WS
+    $wsClient.send('permission_response', {
+      permission_id: permissionId,
+      conversation_id: convId,
+      approved: false,
+    });
+  }, [convId, $wsClient]);
+
+  const approveAlways = useCallback((permissionId: string, toolName: string) => {
+    autoApprovedRef.current.add(toolName);
+    setPendingPermissions((prev) => prev.filter((p) => p.id !== permissionId));
+    $wsClient.send('permission_response', {
+      permission_id: permissionId,
+      conversation_id: convId,
+      approved: true,
+    });
+  }, [convId, $wsClient]);
+
+  // ===============================================================
   // Return
   // ===============================================================
 
@@ -704,7 +836,13 @@ export function useConversationStream(
     isConnected,
     turnId,
     continuationCount,
+    pendingPermissions,
+    lastTurnStats,
+    currentAgentName,
     send,
     cancel,
+    approvePermission,
+    rejectPermission,
+    approveAlways,
   };
 }
