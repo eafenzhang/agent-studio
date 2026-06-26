@@ -136,9 +136,16 @@ export async function getConversations(
 export async function createConversation(
   data: CreateConversationPayload
 ): Promise<Conversation> {
+  // Backend requires 'type' and 'name' — fill defaults if missing.
+  // 'title' is a frontend-only field; map it to 'name' for the backend.
+  const payload = {
+    type: data.type || 'aionrs',
+    name: data.name || data.title || '新对话',
+    extra: data.extra ?? {},
+  };
   return request<Conversation>('/api/conversations', {
     method: 'POST',
-    body: JSON.stringify({ ...data, extra: data.extra ?? {} }),
+    body: JSON.stringify(payload),
   });
 }
 

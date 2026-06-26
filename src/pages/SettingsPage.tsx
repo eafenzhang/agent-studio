@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useUIStore } from '../stores/ui-store';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
   useProviders,
   useCreateProvider,
@@ -17,14 +17,15 @@ import { showConfirm } from '../components/ui/ConfirmModal';
 
 const PRESET_PROVIDERS = [
   { name: 'DeepSeek', platform: 'openai', apiUrl: 'https://api.deepseek.com/v1', models: ['deepseek-chat', 'deepseek-reasoner', 'deepseek-coder'] },
-  { name: '通义千问 (Qwen)', platform: 'openai', apiUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', models: ['qwen3-235b-a22b', 'qwen-plus', 'qwen-turbo'] },
-  { name: '智谱 GLM', platform: 'openai', apiUrl: 'https://open.bigmodel.cn/api/paas/v4', models: ['glm-4-flash', 'glm-4-air', 'glm-4-plus'] },
+  { name: '通义千问 (Qwen)', platform: 'openai', apiUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', models: ['qwen-max', 'qwen-plus', 'qwen-turbo'] },
+  { name: '智谱 GLM', platform: 'openai', apiUrl: 'https://open.bigmodel.cn/api/paas/v4', models: ['glm-4-plus', 'glm-4-air', 'glm-4-flash'] },
   { name: '百度文心 (ERNIE)', platform: 'openai', apiUrl: 'https://qianfan.baidubce.com/v2', models: ['ernie-4.5-8k', 'ernie-speed-8k', 'ernie-lite-8k'] },
-  { name: '月之暗面 (Moonshot)', platform: 'openai', apiUrl: 'https://api.moonshot.cn/v1', models: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'] },
-  { name: 'MiniMax', platform: 'openai', apiUrl: 'https://api.minimax.chat/v1', models: ['abab6.5s-chat', 'abab7-chat'] },
-  { name: '零一万物 (Yi)', platform: 'openai', apiUrl: 'https://api.lingyiwanwu.com/v1', models: ['yi-lightning', 'yi-large'] },
-  { name: '字节豆包 (Doubao)', platform: 'openai', apiUrl: 'https://ark.cn-beijing.volces.com/api/v3', models: ['doubao-pro-32k', 'doubao-lite-32k'] },
-  { name: 'OpenAI', platform: 'openai', apiUrl: 'https://api.openai.com/v1', models: ['gpt-4o', 'gpt-4o-mini', 'o3-mini', 'o4-mini'] },
+  { name: '月之暗面 (Moonshot)', platform: 'openai', apiUrl: 'https://api.moonshot.cn/v1', models: ['moonshot-v1-auto', 'moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'] },
+  { name: 'MiniMax', platform: 'openai', apiUrl: 'https://api.minimax.chat/v1', models: ['MiniMax-Text-01', 'abab6.5s-chat', 'abab7-chat'] },
+  { name: '零一万物 (Yi)', platform: 'openai', apiUrl: 'https://api.lingyiwanwu.com/v1', models: ['yi-lightning', 'yi-large', 'yi-large-turbo'] },
+  { name: '字节豆包 (Doubao)', platform: 'openai', apiUrl: 'https://ark.cn-beijing.volces.com/api/v3', models: ['doubao-1.5-pro-256k', 'doubao-1.5-pro-32k', 'doubao-1.5-lite-32k'] },
+  { name: 'OpenAI', platform: 'openai', apiUrl: 'https://api.openai.com/v1', models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'o3-mini', 'o4-mini'] },
+  { name: 'Anthropic', platform: 'anthropic', apiUrl: 'https://api.anthropic.com/v1', models: ['claude-sonnet-4-20250514', 'claude-3-5-haiku-20241022'] },
   { name: '自定义', platform: 'openai', apiUrl: '', models: [] as string[] },
 ];
 
@@ -80,9 +81,9 @@ export default function SettingsPage() {
   const setLockScreenRemote = useUIStore((s) => s.setLockScreenRemote);
   const sendShortcut = useUIStore((s) => s.sendShortcut);
   const setSendShortcut = useUIStore((s) => s.setSendShortcut);
+  const addToast = useUIStore((s) => s.addToast);
   const selectedModel = useUIStore((s) => s.selectedModel);
   const setSelectedModel = useUIStore((s) => s.setSelectedModel);
-  const addToast = useUIStore((s) => s.addToast);
   const { data: providers, isLoading } = useProviders();
   const createProvider = useCreateProvider();
   const deleteProvider = useDeleteProvider();
@@ -194,7 +195,7 @@ export default function SettingsPage() {
         name: presetName,
         base_url: preset.apiUrl,
         api_key: dialogApiKey,
-        platform: 'openai',
+        platform: preset.platform || 'openai',
         models: preset.models,
       };
 
@@ -307,11 +308,6 @@ export default function SettingsPage() {
         addToast(`当前版本 v${systemVersion}（无法检查更新）`, 'info');
       });
   };
-
-  const allModels = useMemo(() => {
-    const fromProviders = (providers || []).flatMap((p) => p.models || []);
-    return Array.from(new Set(fromProviders));
-  }, [providers]);
 
   return (
     <>
@@ -451,22 +447,6 @@ export default function SettingsPage() {
                 </button>
               </div>
 
-              {/* Default model selector — shows models from all configured providers */}
-              <div className="setting-group">
-                <div className="setting-label">默认模型</div>
-                <div className="setting-desc">选择 AI 助手使用的默认语言模型。</div>
-                <select
-                  className="setting-select"
-                  value={selectedModel || ''}
-                  onChange={(e) => setSelectedModel(e.target.value || null)}
-                >
-                  <option value="">未选择</option>
-                  {allModels.map((m) => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              </div>
-
               <div style={{ marginTop: 8, marginBottom: 8, height: 1, background: 'var(--cb-border-subtle)' }} />
 
               {isLoading ? (
@@ -474,40 +454,58 @@ export default function SettingsPage() {
                   {t('common.loading')}
                 </div>
               ) : !providers || providers.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '12px 0', fontSize: 13, color: 'var(--wb-color-text-disabled)' }}>
-                  暂无配置，点击上方按钮添加模型提供商
+                <div style={{ textAlign: 'center', padding: '40px 0', fontSize: 13, color: 'var(--wb-color-text-disabled)' }}>
+                  <div style={{ fontSize: 32, marginBottom: 8, opacity: 0.3 }}>🤖</div>
+                  <div>暂无配置的模型提供商</div>
+                  <div style={{ marginTop: 4, fontSize: 12 }}>点击上方「添加模型」按钮开始配置</div>
                 </div>
               ) : (
                 providers.map((p) => (
                   <div
                     key={p.id}
                     style={{
-                      background: '#fff',
+                      background: 'var(--cb-bg-secondary, #fff)',
                       border: '1px solid var(--cb-border-subtle)',
-                      borderRadius: 8,
-                      padding: '10px 12px',
+                      borderRadius: 10,
+                      padding: '12px 14px',
                       marginBottom: 8,
+                      transition: 'box-shadow 0.15s',
                     }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)'; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = 'none'; }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <span style={{ fontWeight: 500, fontSize: 13, color: 'var(--cb-text-primary)' }}>
-                          {p.name || '未知'}
-                        </span>
-                        <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--wb-color-text-disabled)' }}>
-                          {(p.models || []).length > 0 ? `${(p.models || []).length} 个模型` : '暂无模型'}
-                        </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{
+                          width: 28, height: 28, borderRadius: 6,
+                          background: 'linear-gradient(135deg, var(--cb-button-primary), #8b7cf7)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: '#fff', fontSize: 14, fontWeight: 600,
+                        }}>
+                          {(p.name || '?')[0]}
+                        </div>
+                        <div>
+                          <span style={{ fontWeight: 500, fontSize: 13, color: 'var(--cb-text-primary)' }}>
+                            {p.name || '未知'}
+                          </span>
+                          <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--wb-color-text-disabled)', background: 'var(--cb-border-subtle)', padding: '1px 6px', borderRadius: 4 }}>
+                            {p.platform || 'openai'}
+                          </span>
+                        </div>
                       </div>
                       <div style={{ display: 'flex', gap: 4 }}>
                         <button
                           onClick={() => handleFetchModels(p.id)}
                           style={{
-                            padding: '2px 8px',
-                            fontSize: 12,
-                            borderRadius: 4,
+                            padding: '3px 10px',
+                            fontSize: 11,
+                            borderRadius: 6,
                             color: 'var(--cb-text-secondary)',
+                            border: '1px solid var(--cb-border-subtle)',
+                            background: 'transparent',
+                            cursor: 'pointer',
                           }}
-                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)'; }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.03)'; }}
                           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                         >
                           获取模型
@@ -515,12 +513,15 @@ export default function SettingsPage() {
                         <button
                           onClick={() => openEditDialog(p.id)}
                           style={{
-                            padding: '2px 8px',
-                            fontSize: 12,
-                            borderRadius: 4,
+                            padding: '3px 10px',
+                            fontSize: 11,
+                            borderRadius: 6,
                             color: 'var(--cb-text-secondary)',
+                            border: '1px solid var(--cb-border-subtle)',
+                            background: 'transparent',
+                            cursor: 'pointer',
                           }}
-                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)'; }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.03)'; }}
                           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                         >
                           修改 Key
@@ -528,21 +529,24 @@ export default function SettingsPage() {
                         <button
                           onClick={() => handleDeleteProvider(p.id)}
                           style={{
-                            padding: '2px 8px',
-                            fontSize: 12,
-                            borderRadius: 4,
+                            padding: '3px 10px',
+                            fontSize: 11,
+                            borderRadius: 6,
                             color: '#ff4d4f',
+                            border: '1px solid rgba(255,77,79,0.2)',
+                            background: 'transparent',
+                            cursor: 'pointer',
                           }}
-                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,77,79,0.06)'; }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,77,79,0.04)'; }}
                           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                         >
                           删除
                         </button>
                       </div>
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--wb-color-text-disabled)', marginTop: 4 }}>
-                      {(p.models || []).slice(0, 6).join(' · ')}
-                      {(p.models || []).length > 6 ? ` 等 ${(p.models || []).length} 个` : ''}
+                    <div style={{ fontSize: 11, color: 'var(--wb-color-text-disabled)', marginTop: 8 }}>
+                      <span style={{ color: 'var(--cb-text-secondary)' }}>{(p.models || []).slice(0, 6).join(' · ')}</span>
+                      {(p.models || []).length > 6 ? <span> ··· 共 {(p.models || []).length} 个模型</span> : (p.models || []).length === 0 ? <span style={{ fontStyle: 'italic' }}>暂无模型，点击「获取模型」拉取</span> : null}
                     </div>
                   </div>
                 ))
