@@ -1,6 +1,6 @@
 [package]
 name = "agent-studio-desktop"
-version = "1.0.16"
+version = "1.0.17"
 edition = "2021"
 description = "Agent Studio Desktop - AI Agent Workstation"
 
