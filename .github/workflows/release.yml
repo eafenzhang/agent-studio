@@ -39,8 +39,35 @@ jobs:
             src-tauri/target
           key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
 
+      - name: Verify backend resource
+        shell: pwsh
+        run: |
+          $file = "src-tauri/resources/aioncore.exe"
+          if (Test-Path $file) {
+            $size = (Get-Item $file).Length
+            Write-Host "✅ aioncore.exe found: $([math]::Round($size/1MB, 1)) MB"
+          } else {
+            Write-Host "❌ aioncore.exe MISSING!"
+            exit 1
+          }
+
       - name: Build Tauri
         run: npm run tauri build
+
+      - name: Verify installer size
+        shell: pwsh
+        run: |
+          $installers = Get-ChildItem "src-tauri/target/release/bundle/nsis/*.exe" -ErrorAction SilentlyContinue
+          $valid = $false
+          foreach ($inst in $installers) {
+            $size = [math]::Round($inst.Length/1MB, 1)
+            Write-Host "📦 $($inst.Name): $size MB"
+            if ($inst.Length -gt 15MB) { $valid = $true }
+          }
+          if (-not $valid) {
+            Write-Host "❌ No valid installer >15MB found"
+            exit 1
+          }
 
       - name: Create Release
         env:
@@ -51,6 +78,16 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
           REPO="${{ github.repository }}"
           echo "Creating release for $REPO tag: $TAG"
+
+          # Check if release already exists (from build.yml auto-release)
+          if gh release view "$TAG" --repo "$REPO" &>/dev/null; then
+            echo "⚠️  Release $TAG already exists, uploading assets instead"
+            NSIS=$(ls src-tauri/target/release/bundle/nsis/*.exe 2>/dev/null | head -1)
+            MSI=$(ls src-tauri/target/release/bundle/msi/*.msi 2>/dev/null | head -1)
+            if [ -n "$NSIS" ]; then gh release upload "$TAG" "$NSIS" --repo "$REPO" --clobber; fi
+            if [ -n "$MSI" ]; then gh release upload "$TAG" "$MSI" --repo "$REPO" --clobber; fi
+            exit 0
+          fi
 
           # Write release notes
           cat > /tmp/release-notes.md << 'EOF'

@@ -36,25 +36,88 @@ jobs:
             src-tauri/target
           key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
 
+      - name: Verify backend resource
+        shell: pwsh
+        run: |
+          $file = "src-tauri/resources/aioncore.exe"
+          if (Test-Path $file) {
+            $size = (Get-Item $file).Length
+            Write-Host "✅ aioncore.exe found: $([math]::Round($size/1MB, 1)) MB"
+          } else {
+            Write-Host "❌ aioncore.exe MISSING!"
+            exit 1
+          }
+
       - name: Build Tauri
         run: npm run tauri build
 
-      - name: Upload installer
+      - name: Verify installer size
+        shell: pwsh
+        run: |
+          $installers = Get-ChildItem "src-tauri/target/release/bundle/nsis/*.exe" -ErrorAction SilentlyContinue
+          $valid = $false
+          foreach ($inst in $installers) {
+            $size = [math]::Round($inst.Length/1MB, 1)
+            Write-Host "📦 $($inst.Name): $size MB"
+            if ($inst.Length -gt 15MB) {
+              $valid = $true
+              Write-Host "✅ Installer size OK (>15MB)"
+            } else {
+              Write-Host "⚠️  Installer too small (<15MB), resources may not be bundled"
+            }
+          }
+          # Also check MSI
+          Get-ChildItem "src-tauri/target/release/bundle/msi/*.msi" -ErrorAction SilentlyContinue | ForEach-Object {
+            $size = [math]::Round($_.Length/1MB, 1)
+            Write-Host "📦 MSI $($_.Name): $size MB"
+          }
+          if (-not $valid) {
+            Write-Host "❌ No valid installer found (>15MB)"
+            exit 1
+          }
+
+      - name: Upload installer (NSIS)
         uses: actions/upload-artifact@v4
         with:
-          name: installer
+          name: installer-nsis
           path: src-tauri/target/release/bundle/nsis/*.exe
+
+      - name: Upload installer (MSI)
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-msi
+          path: src-tauri/target/release/bundle/msi/*.msi
 
   release:
     needs: build
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
     steps:
       - uses: actions/checkout@v5
 
-      - name: Download installer
+      - name: Download NSIS installer
         uses: actions/download-artifact@v4
         with:
-          name: installer
+          name: installer-nsis
+
+      - name: Download MSI installer
+        uses: actions/download-artifact@v4
+        with:
+          name: installer-msi
+
+      - name: Verify downloaded installer
+        shell: bash
+        run: |
+          ls -la *.exe *.msi 2>/dev/null || echo "No installer files found"
+          INSTALLER=$(ls *.exe 2>/dev/null | head -1)
+          if [ -n "$INSTALLER" ]; then
+            SIZE=$(stat -c%s "$INSTALLER" 2>/dev/null || wc -c < "$INSTALLER")
+            if [ "$SIZE" -lt 15000000 ]; then
+              echo "❌ Installer too small ($SIZE bytes), aborting release"
+              exit 1
+            fi
+            echo "✅ Installer size OK ($(($SIZE/1048576)) MB)"
+          fi
 
       - name: Bump version and release
         env:
@@ -87,9 +150,15 @@ jobs:
           git push origin master
           git push origin -f "v$NEW_VERSION"
 
-          INSTALLER=$(ls *.exe 2>/dev/null | head -1)
-          if [ -n "$INSTALLER" ]; then
-            gh release create "v$NEW_VERSION" "$INSTALLER" \
+          NSIS_INSTALLER=$(ls *.exe 2>/dev/null | head -1)
+          MSI_INSTALLER=$(ls *.msi 2>/dev/null | head -1)
+
+          if [ -n "$NSIS_INSTALLER" ]; then
+            RELEASE_ARGS=("v$NEW_VERSION" "$NSIS_INSTALLER")
+            if [ -n "$MSI_INSTALLER" ]; then
+              RELEASE_ARGS+=("$MSI_INSTALLER")
+            fi
+            gh release create "${RELEASE_ARGS[@]}" \
               --generate-notes || true
           else
             echo "No installer found"
