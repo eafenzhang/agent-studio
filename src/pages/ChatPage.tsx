@@ -148,14 +148,29 @@ export default function ChatPage() {
   }, [messagesData]);
 
   // ===============================================================
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom (debounced to avoid layout thrashing)
   // ===============================================================
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const userScrolledUpRef = useRef(false);
+
+  // Track if user has scrolled up
   useEffect(() => {
-    if (typeof messagesEndRef.current?.scrollIntoView === 'function') {
+    const el = scrollRef.current?.parentElement;
+    if (!el) return;
+    const onScroll = () => {
+      const threshold = 100;
+      userScrolledUpRef.current = el.scrollHeight - el.scrollTop - el.clientHeight > threshold;
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    if (!userScrolledUpRef.current && typeof messagesEndRef.current?.scrollIntoView === 'function') {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [localMessages, streamingContent, streamingToolCalls.length]);
+  }, [localMessages]);
 
   // ===============================================================
   // Persist plan steps to task store (survives page reloads)

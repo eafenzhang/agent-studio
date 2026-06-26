@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as api from '../../src/lib/api';
 
 const mockFetch = vi.fn();
-global.fetch = mockFetch;
+vi.stubGlobal('fetch', mockFetch);
 
 function mockOkResponse(data: unknown) {
   return { ok: true, json: async () => ({ success: true, data }) };
