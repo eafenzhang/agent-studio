@@ -12,12 +12,7 @@ export default defineConfig({
       reporter: ['text', 'json', 'html'],
       include: ['src/**/*.{js,ts,tsx}'],
       exclude: [
-        'src/main.js',
         'src/main.tsx',
-        'src/components/agents.js',
-        'src/components/conversations.js',
-        'src/components/fileBrowser.js',
-        'src/components/mcpPanel.js',
       ],
     },
   },
