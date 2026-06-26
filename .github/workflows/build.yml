@@ -81,6 +81,14 @@ jobs:
             exit 1
           }
 
+      - name: Clean old bundles
+        shell: pwsh
+        run: |
+          # Remove old bundle artifacts to avoid picking stale installers
+          Remove-Item -Path "src-tauri/target/release/bundle/nsis/*.exe" -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "src-tauri/target/release/bundle/msi/*.msi" -Force -ErrorAction SilentlyContinue
+          Write-Host "✅ Old bundles cleaned"
+
       - name: Build Tauri
         run: npm run tauri build
 
@@ -158,8 +166,8 @@ jobs:
           git push origin master
           git push origin -f "v$NEW_VERSION"
 
-          NSIS=$(ls *.exe 2>/dev/null | grep -v 'aioncore' | head -1)
-          MSI=$(ls *.msi 2>/dev/null | head -1)
+          NSIS=$(ls -t *.exe 2>/dev/null | grep -v 'aioncore' | head -1)
+          MSI=$(ls -t *.msi 2>/dev/null | head -1)
 
           echo "NSIS installer: $NSIS"
           echo "MSI installer: $MSI"
