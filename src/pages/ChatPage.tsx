@@ -35,6 +35,7 @@ import TaskProgressPanel from '../components/chat/TaskProgressPanel';
 import ChatHeader from '../components/chat/ChatHeader';
 import ThinkingBlock from '../components/chat/ThinkingBlock';
 import PermissionDialog from '../components/chat/PermissionDialog';
+import { showConfirm } from '../components/ui/ConfirmModal';
 
 // ===================================================================
 // Types
@@ -351,7 +352,7 @@ export default function ChatPage() {
 
   const handleResetConversation = useCallback(async () => {
     if (!convId) return;
-    if (!window.confirm('确定要重置对话上下文吗？这将清除 AI 的对话记忆但保留消息记录。')) return;
+    if (!await showConfirm({ message: '确定要重置对话上下文吗？这将清除 AI 的对话记忆但保留消息记录。' })) return;
     try {
       await api.resetConversation(convId);
       addToast('对话上下文已重置', 'success');
@@ -362,7 +363,7 @@ export default function ChatPage() {
 
   const handleDeleteConversation = useCallback(async () => {
     if (!convId) return;
-    if (!window.confirm(t('chat.deleteConv'))) return;
+    if (!await showConfirm(t('chat.deleteConv'))) return;
 
     try {
       await deleteConversation.mutateAsync(convId);

@@ -36,6 +36,8 @@ import type {
 } from '../types/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:25808';
+const MAX_RETRIES = 2;
+const RETRY_DELAY = 500;
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
@@ -48,19 +50,28 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     },
   };
 
-  try {
-    const response = await fetch(url, config);
-    const data = await response.json();
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(url, config);
+      const data = await response.json();
 
-    if (!data.success) {
-      throw new Error(data.error || '请求失败');
+      if (data && typeof data === 'object' && 'success' in data && data.success === false) {
+        throw new Error(data.error || '请求失败');
+      }
+
+      // Some endpoints return { success, data }, others return data directly
+      return (data && typeof data === 'object' && 'data' in data ? data.data : data) as T;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (attempt < MAX_RETRIES && !lastError.message.startsWith('4')) {
+        await new Promise((r) => setTimeout(r, RETRY_DELAY * (attempt + 1)));
+      } else break;
     }
-
-    return data.data as T;
-  } catch (error) {
-    console.error(`API Error [${endpoint}]:`, error);
-    throw error;
   }
+
+  console.error(`API Error [${endpoint}]:`, lastError);
+  throw lastError || new Error('请求失败');
 }
 
 // ===== Health =====

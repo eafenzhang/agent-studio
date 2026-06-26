@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import ToastContainer from './components/ui/Toast';
+import ConfirmModal from './components/ui/ConfirmModal';
 import { SkeletonCard } from './components/ui/Skeleton';
 import { initKeyboard, register } from './utils/keyboard';
 
@@ -136,6 +137,7 @@ export default function App() {
         </Route>
       </Routes>
       <ToastContainer />
+      <ConfirmModal />
     </>
   );
 }

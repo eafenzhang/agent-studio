@@ -13,6 +13,7 @@ import {
 } from '../hooks/use-api';
 import { useQueryClient } from '@tanstack/react-query';
 import * as api from '../lib/api';
+import { showConfirm } from '../components/ui/ConfirmModal';
 
 const PRESET_PROVIDERS = [
   { name: 'DeepSeek', platform: 'openai', apiUrl: 'https://api.deepseek.com/v1', models: ['deepseek-chat', 'deepseek-reasoner', 'deepseek-coder'] },
@@ -233,7 +234,7 @@ export default function SettingsPage() {
   };
 
   const handleDeleteProvider = async (id: string) => {
-    if (!confirm(t('settings.deleteProvider'))) return;
+    if (!await showConfirm(t('settings.deleteProvider'))) return;
     try {
       await deleteProvider.mutateAsync(id);
       addToast(t('settings.providerDeleted'), 'success');
@@ -278,7 +279,7 @@ export default function SettingsPage() {
   };
 
   const handleDeleteMemory = async (id: string) => {
-    if (!confirm('确定要删除这条记忆吗？')) return;
+    if (!await showConfirm('确定要删除这条记忆吗？')) return;
     try {
       await deleteMemory.mutateAsync(id);
       addToast('已删除', 'success');

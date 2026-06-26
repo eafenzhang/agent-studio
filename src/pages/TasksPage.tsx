@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../stores/ui-store';
+import { showConfirm } from '../components/ui/ConfirmModal';
 
 // ===================================================================
 // Types
@@ -176,8 +177,8 @@ export default function TasksPage() {
     saveTasks(next);
   }, [tasks]);
 
-  const handleDelete = useCallback((id: string) => {
-    if (!window.confirm('确定要删除这个任务吗？')) return;
+  const handleDelete = useCallback(async (id: string) => {
+    if (!await showConfirm('确定要删除这个任务吗？')) return;
     const next = tasks.filter((t) => t.id !== id);
     setTasks(next);
     saveTasks(next);

@@ -19,12 +19,13 @@ function wrapper({ children }: { children: React.ReactNode }) {
 // Hoisted mocks
 // ===================================================================
 
-const { mockNavigate, mockSendMessage, mockCancel, mockDeleteConv, mockConversationData } = vi.hoisted(() => ({
+const { mockNavigate, mockSendMessage, mockCancel, mockDeleteConv, mockConversationData, mockShowConfirm } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockSendMessage: vi.fn().mockResolvedValue({ msg_id: 'msg-2' }),
   mockCancel: vi.fn(),
   mockDeleteConv: vi.fn().mockResolvedValue(undefined),
   mockConversationData: { id: 'conv-1', name: 'Test Chat' },
+  mockShowConfirm: vi.fn().mockResolvedValue(true),
 }));
 
 // Streaming hook mock state (controlled per-test)
@@ -92,6 +93,10 @@ vi.mock('../../src/lib/api', () => ({
   getSkills: vi.fn().mockResolvedValue([]),
   getMcpServers: vi.fn().mockResolvedValue([]),
   sendMessage: vi.fn().mockResolvedValue({ msg_id: 'msg-2' }),
+}));
+
+vi.mock('../../src/components/ui/ConfirmModal', () => ({
+  showConfirm: () => mockShowConfirm(),
 }));
 
 // ===================================================================
@@ -333,7 +338,6 @@ describe('ChatPage', () => {
   // ===============================================================
 
   it('deletes the conversation and navigates home', async () => {
-    window.confirm = vi.fn().mockReturnValue(true);
     render(<ChatPage />, { wrapper });
 
     const deleteButtons = screen.getAllByRole('button', { name: 'chat.delete' });

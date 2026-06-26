@@ -210,7 +210,12 @@ export const useUIStore = create<UIState>((set, get) => {
 
     addToast: (message, type = 'info') => {
       const id = `toast-${Date.now()}-${++toastCounter}`;
-      set((s) => ({ toasts: [...s.toasts, { id, message, type }] }));
+      set((s) => {
+        // Cap visible toasts at 5
+        const toasts = [...s.toasts, { id, message, type }];
+        if (toasts.length > 5) toasts.splice(0, toasts.length - 5);
+        return { toasts };
+      });
       const timer = setTimeout(() => {
         get().removeToast(id);
       }, 4000);

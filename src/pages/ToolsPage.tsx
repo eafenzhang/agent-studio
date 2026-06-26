@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUIStore } from '../stores/ui-store';
 import * as api from '../lib/api';
+import { showConfirm } from '../components/ui/ConfirmModal';
 
 type ToolTab = 'skill' | 'mcp';
 
@@ -168,7 +169,7 @@ export default function ToolsPage() {
   // ===============================================================
 
   const handleDeleteMcp = useCallback(async (id: string) => {
-    if (!window.confirm('确定要删除这个 MCP 服务器吗？')) return;
+    if (!await showConfirm('确定要删除这个 MCP 服务器吗？')) return;
     try {
       await api.deleteMcpServer(id);
       addToast('MCP 服务器已删除', 'success');
