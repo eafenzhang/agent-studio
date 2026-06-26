@@ -246,12 +246,12 @@ export default function SettingsPage() {
 
   const handleFetchModels = async (id: string) => {
     try {
-      addToast('正在获取模型列表...', 'info');
+      addToast(t('settings.fetchModels') + '...', 'info');
       await api.fetchProviderModels(id);
       addToast(t('settings.modelListUpdated'), 'success');
       queryClient.invalidateQueries({ queryKey: ['providers'] });
-    } catch {
-      addToast(t('settings.fetchFailed'), 'error');
+    } catch (err) {
+      addToast('无法拉取模型列表（可能是 API Key 无效或网络问题），将使用预设模型', 'warning');
     }
   };
 
