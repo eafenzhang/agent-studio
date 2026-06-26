@@ -22,7 +22,8 @@ import markdown from 'highlight.js/lib/languages/markdown';
 import yaml from 'highlight.js/lib/languages/yaml';
 import dockerfile from 'highlight.js/lib/languages/dockerfile';
 import plaintext from 'highlight.js/lib/languages/plaintext';
-import 'highlight.js/styles/github.css';
+import hljsLightTheme from 'highlight.js/styles/github.css?inline';
+import hljsDarkTheme from 'highlight.js/styles/github-dark-dimmed.css?inline';
 
 hljs.registerLanguage('javascript', javascript);
 hljs.registerLanguage('js', javascript);
@@ -342,6 +343,25 @@ export default function MessageBubble({
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   const path = useRef<string | null>(null);
+
+  // Dynamic highlight.js theme (Vite ?inline imports + MutationObserver)
+  useEffect(() => {
+    const applyTheme = () => {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      const css = isDark ? hljsDarkTheme : hljsLightTheme;
+      let style = document.querySelector<HTMLStyleElement>('style[data-hljs-theme]');
+      if (!style) {
+        style = document.createElement('style');
+        style.setAttribute('data-hljs-theme', '');
+        document.head.appendChild(style);
+      }
+      style.textContent = css;
+    };
+    applyTheme();
+    const observer = new MutationObserver(() => applyTheme());
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
 
   // Reset mermaid block tracking on each render
   useEffect(() => {
