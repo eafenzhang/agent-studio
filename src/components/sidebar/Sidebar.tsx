@@ -1,8 +1,9 @@
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import ConversationList from './ConversationList';
 import { useUIStore } from '../../stores/ui-store';
+import { useTaskStepsStore } from '../../stores/task-store';
 
 interface NavItem {
   id: string;
@@ -24,21 +25,15 @@ const navItems: NavItem[] = [
     labelKey: 'nav.assistant',
   },
   {
-    id: 'projects', path: '/projects',
-    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>,
-    labelKey: 'nav.projects',
-    badge: 'Beta',
-  },
-  {
     id: 'experts', path: '/experts',
     icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="5"/><path d="M3 21v-2a7 7 0 0 1 7-7h4a7 7 0 0 1 7 7v2"/></svg>,
     labelKey: 'nav.experts',
   },
   {
-    id: 'tasks', path: '/tasks',
-    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg>,
-    labelKey: 'nav.tasks',
-    badge: 'New',
+    id: 'projects', path: '/projects',
+    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>,
+    labelKey: 'nav.projects',
+    badge: 'Beta',
   },
   {
     id: 'tools', path: '/tools',
@@ -50,6 +45,11 @@ const navItems: NavItem[] = [
     icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
     labelKey: 'nav.artifacts',
   },
+  {
+    id: 'files', path: '/files',
+    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>,
+    labelKey: 'nav.files',
+  },
 ];
 
 export default function Sidebar() {
@@ -59,6 +59,9 @@ export default function Sidebar() {
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const [search, setSearch] = useState('');
+  const [filterMode, setFilterMode] = useState<'all' | 'tasks'>('all');
+  const activeTaskConvs = useTaskStepsStore((s) => s.getActiveTaskConvs());
+  const taskConvCount = activeTaskConvs.length;
 
   const isActive = (path: string): boolean => {
     if (path === '/') return location.pathname === '/';
@@ -154,9 +157,32 @@ export default function Sidebar() {
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
         </div>
+
+        {/* Task filter toggle */}
+        {taskConvCount > 0 && (
+          <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+            <button
+              className={`chat-welcome-chip ${filterMode === 'all' ? 'active' : ''}`}
+              onClick={() => setFilterMode('all')}
+              style={{ fontSize: 11, padding: '2px 8px' }}
+            >
+              全部
+            </button>
+            <button
+              className={`chat-welcome-chip ${filterMode === 'tasks' ? 'active' : ''}`}
+              onClick={() => setFilterMode('tasks')}
+              style={{ fontSize: 11, padding: '2px 8px', display: 'flex', alignItems: 'center', gap: 4 }}
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              任务 ({taskConvCount})
+            </button>
+          </div>
+        )}
       </div>
 
-      <ConversationList search={search} />
+      <ConversationList search={search} filterMode={filterMode} />
 
       <div className="conversation-list-footer">
         <div className="conversation-list-footer-avatar">U</div>

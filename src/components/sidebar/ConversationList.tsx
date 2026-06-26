@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useConversations, useDeleteConversation } from '../../hooks/use-api';
 import type { Conversation } from '../../types/api';
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import * as api from '../../lib/api';
+import { useTaskStepsStore } from '../../stores/task-store';
 
 interface ConversationGroup {
   label: string;
@@ -20,12 +23,14 @@ interface ContextMenuState {
 
 interface ConversationListProps {
   search?: string;
+  filterMode?: 'all' | 'tasks';
 }
 
-export default function ConversationList({ search = '' }: ConversationListProps) {
+export default function ConversationList({ search = '', filterMode = 'all' }: ConversationListProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { data, isLoading } = useConversations();
+  const queryClient = useQueryClient();
+  const { data, isLoading } = useConversations(search);
   const deleteMutation = useDeleteConversation();
 
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
@@ -39,16 +44,28 @@ export default function ConversationList({ search = '' }: ConversationListProps)
 
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
+  // ---- Inline rename state ----
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
   const rawConversations: Conversation[] = (data as { items?: Conversation[] })?.items || [];
+  const stepsByConv = useTaskStepsStore((s) => s.stepsByConv);
+  const getProgress = useTaskStepsStore((s) => s.getProgress);
 
   const conversations = useMemo(() => {
-    const trimmed = search.trim().toLowerCase();
-    if (!trimmed) return rawConversations;
-    return rawConversations.filter((c) => {
-      const title = (c.name || c.title || '').toLowerCase();
-      return title.includes(trimmed);
-    });
-  }, [rawConversations, search]);
+    let filtered = rawConversations;
+
+    // Apply task filter (search is now handled server-side via useConversations(search))
+    if (filterMode === 'tasks') {
+      filtered = filtered.filter((c) => {
+        const steps = stepsByConv[c.id];
+        return steps && steps.length > 0 && steps.some((s) => s.status !== 'done' && s.status !== 'error');
+      });
+    }
+
+    return filtered;
+  }, [rawConversations, search, filterMode, stepsByConv]);
 
   const formatTime = (ts?: string): string => {
     if (!ts) return '';
@@ -63,9 +80,7 @@ export default function ConversationList({ search = '' }: ConversationListProps)
 
   /** Group conversations by time period */
   const groups: ConversationGroup[] = useMemo(() => {
-    if (conversations.length === 0) {
-      return [];
-    }
+    if (conversations.length === 0) return [];
 
     const now = new Date();
     const today: Conversation[] = [];
@@ -108,6 +123,10 @@ export default function ConversationList({ search = '' }: ConversationListProps)
       [label]: !prev[label],
     }));
   };
+
+  // ===============================================================
+  // Context Menu
+  // ===============================================================
 
   /** Close the context menu on any outside click or Escape key. */
   useEffect(() => {
@@ -152,6 +171,10 @@ export default function ConversationList({ search = '' }: ConversationListProps)
     []
   );
 
+  // ===============================================================
+  // Delete
+  // ===============================================================
+
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const handleDelete = async (e: React.MouseEvent, convId: string) => {
@@ -159,17 +182,14 @@ export default function ConversationList({ search = '' }: ConversationListProps)
     e.preventDefault();
 
     if (deleteConfirmId === convId) {
-      // Second click — confirm deletion
       setDeleteConfirmId(null);
       try {
         await deleteMutation.mutateAsync(convId);
       } catch {
-        // silently fail — the mutation hook handles cache invalidation
+        // silently fail
       }
     } else {
-      // First click — show confirmation
       setDeleteConfirmId(convId);
-      // Auto-cancel confirmation after 3 seconds
       setTimeout(() => {
         setDeleteConfirmId((current) => (current === convId ? null : current));
       }, 3000);
@@ -185,15 +205,65 @@ export default function ConversationList({ search = '' }: ConversationListProps)
     setContextMenu((prev) => ({ ...prev, visible: false }));
   };
 
-  const handlePin = () => {
-    // Pin action placeholder — not yet implemented in API
-    setContextMenu((prev) => ({ ...prev, visible: false }));
-  };
+  // ===============================================================
+  // Rename
+  // ===============================================================
 
-  const handleArchive = () => {
-    // Archive action placeholder — not yet implemented in API
+  const startRenaming = useCallback((convId: string, currentTitle: string) => {
+    setRenamingId(convId);
+    setRenameValue(currentTitle);
     setContextMenu((prev) => ({ ...prev, visible: false }));
-  };
+    // Focus input after render
+    setTimeout(() => {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }, 50);
+  }, []);
+
+  const handleRenameConfirm = useCallback(async () => {
+    if (!renamingId) return;
+    const trimmed = renameValue.trim();
+    if (!trimmed) {
+      setRenamingId(null);
+      return;
+    }
+    try {
+      await api.updateConversation(renamingId, { name: trimmed });
+      queryClient.invalidateQueries({ queryKey: ['conversation', renamingId] });
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    } catch {
+      // silently fail
+    }
+    setRenamingId(null);
+  }, [renamingId, renameValue, queryClient]);
+
+  const handleRenameKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleRenameConfirm();
+      } else if (e.key === 'Escape') {
+        setRenamingId(null);
+      }
+    },
+    [handleRenameConfirm]
+  );
+
+  // Close rename if clicking elsewhere
+  useEffect(() => {
+    if (!renamingId) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (renameInputRef.current && !renameInputRef.current.contains(e.target as Node)) {
+        handleRenameConfirm();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [renamingId, handleRenameConfirm]);
+
+  // ===============================================================
+  // Render
+  // ===============================================================
 
   return (
     <div className="conversation-list-content">
@@ -214,7 +284,9 @@ export default function ConversationList({ search = '' }: ConversationListProps)
         </div>
       ) : groups.length === 0 ? (
         <div style={{ padding: '8px', fontSize: 12, color: 'var(--wb-color-text-disabled)' }}>
-          {t('sidebar.noConversations')}
+          {filterMode === 'tasks'
+            ? '暂未有任务对话 — 与 AI 对话时收到计划步骤的任务会自动显示在此'
+            : t('sidebar.noConversations')}
         </div>
       ) : (
         groups.map((group) => {
@@ -239,15 +311,66 @@ export default function ConversationList({ search = '' }: ConversationListProps)
                   {group.items.map((c) => {
                     const title = c.name || c.title || '新对话';
                     const time = c.updatedAt ? formatTime(c.updatedAt) : '';
+                    const isRenaming = renamingId === c.id;
+
                     return (
                       <div
                         key={c.id}
                         className="conversation-agent-card"
-                        onClick={() => navigate(`/chat/${c.id}`)}
+                        onClick={() => {
+                          if (!isRenaming) navigate(`/chat/${c.id}`);
+                        }}
                         onContextMenu={(e) => handleContextMenu(e, c.id, title)}
+                        onDoubleClick={() => startRenaming(c.id, title)}
                       >
                         <div className="conversation-agent-card__info">
-                          <div className="conversation-agent-card__title">{title}</div>
+                          {isRenaming ? (
+                            <input
+                              ref={renameInputRef}
+                              type="text"
+                              value={renameValue}
+                              onChange={(e) => setRenameValue(e.target.value)}
+                              onKeyDown={handleRenameKeyDown}
+                              onClick={(e) => e.stopPropagation()}
+                              style={{
+                                width: '100%',
+                                padding: '2px 6px',
+                                fontSize: 12,
+                                border: '1px solid var(--cb-button-primary)',
+                                borderRadius: 4,
+                                outline: 'none',
+                                background: 'var(--cb-surface-primary)',
+                                color: 'var(--cb-text-primary)',
+                              }}
+                            />
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%' }}>
+                              <div className="conversation-agent-card__title">{title}</div>
+                              {/* Task progress indicator */}
+                              {(() => {
+                                const progress = getProgress(c.id);
+                                if (progress.total === 0) return null;
+                                const allDone = progress.done === progress.total;
+                                return (
+                                  <span
+                                    style={{
+                                      fontSize: 10,
+                                      padding: '1px 5px',
+                                      borderRadius: 8,
+                                      flexShrink: 0,
+                                      background: allDone ? 'rgba(34,197,94,0.12)' : 'rgba(108,77,255,0.1)',
+                                      color: allDone ? '#22c55e' : 'var(--cb-button-primary)',
+                                      fontWeight: 500,
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                    title={allDone ? `${progress.done}/${progress.total} 已完成` : `任务进度 ${progress.done}/${progress.total}`}
+                                  >
+                                    {allDone ? '✓' : `${progress.done}/${progress.total}`}
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                          )}
                           {time && <div className="conversation-agent-card__meta">{time}</div>}
                         </div>
                         <div className="conversation-agent-card__actions">
@@ -311,7 +434,7 @@ export default function ConversationList({ search = '' }: ConversationListProps)
             {contextMenu.conversationTitle}
           </div>
           <button
-            onClick={handlePin}
+            onClick={() => startRenaming(contextMenu.conversationId, contextMenu.conversationTitle)}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -329,35 +452,10 @@ export default function ConversationList({ search = '' }: ConversationListProps)
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="12" y1="17" x2="12" y2="3" />
-              <path d="M5 21h14" />
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
             </svg>
-            置顶
-          </button>
-          <button
-            onClick={handleArchive}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              width: '100%',
-              padding: '6px 12px',
-              fontSize: 12,
-              color: 'var(--cb-text-primary)',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              textAlign: 'left',
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <polyline points="21 8 21 21 3 21 3 8" />
-              <rect x="1" y="3" width="22" height="5" />
-              <line x1="10" y1="12" x2="14" y2="12" />
-            </svg>
-            归档
+            重命名
           </button>
           <button
             onClick={handleContextDelete}

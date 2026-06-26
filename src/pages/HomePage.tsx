@@ -4,8 +4,10 @@ import type { Assistant } from '../types/api';
 import { useAssistants, useCreateConversation } from '../hooks/use-api';
 import { useUIStore } from '../stores/ui-store';
 import { useChatStore } from '../stores/chat-store';
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import * as api from '../lib/api';
+import { splitTools, initToolCaches } from '../lib/tools';
+import DOMPurify from 'dompurify';
 import ChatInputPanel from '../components/chat/ChatInputPanel';
 
 /** Categories for filtering assistant chips on the home page. */
@@ -62,7 +64,7 @@ const chipData: Record<string, Array<{ l: string; c: string; i: string }>> = {
 function renderChipAvatar(assistant: Assistant): string | { __html: string } {
   const avatar = assistant.avatar || '';
   if (avatar.startsWith('<')) {
-    return { __html: avatar };
+    return { __html: DOMPurify.sanitize(avatar, { ALLOWED_TAGS: ['svg', 'img', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g', 'defs', 'text', 'tspan', 'use', 'clipPath'], ALLOWED_ATTR: ['viewBox', 'width', 'height', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'd', 'cx', 'cy', 'r', 'x', 'y', 'rx', 'ry', 'points', 'transform', 'style', 'src', 'alt', 'class', 'id', 'href', 'clip-path', 'color', 'opacity', 'xmlns', 'preserveAspectRatio'] }) };
   }
   if (avatar.startsWith('http') || avatar.startsWith('/')) {
     const src = avatar.startsWith('/') ? 'http://127.0.0.1:25808' + avatar : avatar;
@@ -82,7 +84,7 @@ const MAX_VISIBLE_CHIPS = 8;
 
 export default function HomePage() {
   const { t } = useTranslation();
-  const { data: assistants } = useAssistants();
+  const { data: assistants, isLoading: assistantsLoading, error: assistantsError } = useAssistants();
   const addToast = useUIStore((s) => s.addToast);
   const isGenerating = useUIStore((s) => s.isGenerating);
   const selectedModel = useUIStore((s) => s.selectedModel);
@@ -98,6 +100,21 @@ export default function HomePage() {
 
   const scrollChips = useCallback((dir: number) => {
     chipScrollRef.current?.scrollBy({ left: dir * 200, behavior: 'smooth' });
+  }, []);
+
+  // Show a toast when backend is unreachable for assistants
+  useEffect(() => {
+    if (assistantsError) {
+      addToast('无法加载专家列表，使用默认选择', 'info');
+    }
+  }, [assistantsError, addToast]);
+
+  // Initialize tool caches for shared splitTools utility
+  useEffect(() => {
+    initToolCaches(
+      () => api.getSkills().catch(() => []),
+      () => api.getMcpServers().catch(() => [])
+    );
   }, []);
 
   // ---- Filter assistants by active category ----
@@ -119,6 +136,25 @@ export default function HomePage() {
 
   // ---- Render assistant chips ----
   const renderChips = useCallback(() => {
+    if (assistantsLoading) {
+      return Array.from({ length: 6 }).map((_, i) => (
+        <div
+          key={`skeleton-${i}`}
+          className="chat-assistant-chip"
+          style={{ pointerEvents: 'none', opacity: 0.5 }}
+        >
+          <div
+            className="chat-assistant-chip-avatar"
+            style={{ background: 'var(--cb-border)', animation: 'pulse 1.5s ease-in-out infinite' }}
+          />
+          <span
+            className="chat-assistant-chip-label"
+            style={{ background: 'var(--cb-border)', borderRadius: 4, width: 40, height: 10, animation: 'pulse 1.5s ease-in-out infinite' }}
+          />
+        </div>
+      ));
+    }
+
     if (filteredAssistants && filteredAssistants.length > 0) {
       const displayed = filteredAssistants.slice(0, MAX_VISIBLE_CHIPS);
       return displayed.map((a: Assistant) => {
@@ -164,7 +200,7 @@ export default function HomePage() {
         <span className="chat-assistant-chip-label">{c.l}</span>
       </div>
     ));
-  }, [filteredAssistants, activeCategory, selectedChip]);
+  }, [filteredAssistants, activeCategory, selectedChip, assistantsLoading]);
 
   const categoryLabels: Record<Category, string> = {
     '全部': '全部',
@@ -204,13 +240,10 @@ export default function HomePage() {
         if (selectedExpert) payload.assistant_id = selectedExpert;
 
         if (selectedTools.length > 0) {
-          const skillSet = new Set((window as any).__skillsCache?.map?.((s: any) => s.id) ?? []);
-          const mcpSet = new Set((window as any).__mcpCache?.map?.((m: any) => m.id) ?? []);
-          const skillIds = selectedTools.filter((id: string) => skillSet.has(id));
-          const mcpIds = selectedTools.filter((id: string) => mcpSet.has(id));
-          if (skillIds.length > 0) payload.inject_skills = skillIds;
-          if (mcpIds.length > 0) payload.mcp_tools = mcpIds;
-          if (skillIds.length === 0 && mcpIds.length === 0) payload.tools = selectedTools;
+          const categorized = splitTools(selectedTools);
+          if (categorized.inject_skills) payload.inject_skills = categorized.inject_skills;
+          if (categorized.mcp_tools) payload.mcp_tools = categorized.mcp_tools;
+          if (categorized.tools) payload.tools = categorized.tools;
         }
 
         const msg = await api.sendMessage(convId, payload);

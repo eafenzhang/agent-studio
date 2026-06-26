@@ -93,6 +93,25 @@ export default function SettingsPage() {
   const { data: memoryEntries, isLoading: memoryLoading } = useMemory();
   const deleteMemory = useDeleteMemory();
 
+  // ---- System info state ----
+  const [systemVersion, setSystemVersion] = useState<string>('1.0.10');
+  const [systemInfoLoading, setSystemInfoLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getSystemInfo().then((info) => {
+      if (!cancelled) {
+        setSystemVersion(info.version || '1.0.10');
+        setSystemInfoLoading(false);
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setSystemInfoLoading(false);
+      }
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   // Provider dialog
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -297,9 +316,22 @@ export default function SettingsPage() {
 
   const handleCheckUpdate = () => {
     addToast('正在检查更新...', 'info');
-    setTimeout(() => {
-      addToast('已是最新版本 v5.1.3', 'success');
-    }, 1500);
+    // Fetch latest.json from GitHub to check for newer versions
+    fetch('https://github.com/eafenzhang/agent-studio/releases/latest/download/latest.json', {
+      mode: 'cors',
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        const latest = data.version || '';
+        if (latest && latest !== systemVersion) {
+          addToast(`发现新版本 v${latest}，请前往 GitHub 下载`, 'warning');
+        } else {
+          addToast(`已是最新版本 v${systemVersion}`, 'success');
+        }
+      })
+      .catch(() => {
+        addToast(`当前版本 v${systemVersion}（无法检查更新）`, 'info');
+      });
   };
 
   const allModels = useMemo(() => {
@@ -595,8 +627,12 @@ export default function SettingsPage() {
             {/* Update Settings */}
             <div className={`settings-page ${activeTab === 'update' ? 'active' : ''}`}>
               <div style={{ textAlign: 'center', padding: '24px 0' }}>
-                <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>v5.1.3</div>
-                <div style={{ fontSize: 13, color: 'var(--cb-switch-active-bg)', marginBottom: 16 }}>已是最新版本</div>
+                <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>
+                  {systemInfoLoading ? '...' : `v${systemVersion}`}
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--cb-switch-active-bg)', marginBottom: 16 }}>
+                  {systemInfoLoading ? '' : `Agent Studio Desktop`}
+                </div>
                 <button
                   onClick={handleCheckUpdate}
                   style={{

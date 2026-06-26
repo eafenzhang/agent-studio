@@ -1,5 +1,6 @@
 import React, { Component, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -35,6 +36,7 @@ class ErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryStat
 
 function ErrorFallback({ error }: { error: Error | null }) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   return (
     <div
@@ -50,22 +52,22 @@ function ErrorFallback({ error }: { error: Error | null }) {
         color: 'var(--cb-text-primary)',
       }}
     >
-      <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>应用出现错误</div>
+      <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }} role="alert">{t('error.title')}</div>
       <div style={{ fontSize: 13, color: 'var(--cb-text-secondary)', marginBottom: 16, maxWidth: 480 }}>
-        {error?.message || '未知错误'}
+        {error?.message || t('error.unknown')}
       </div>
       <div style={{ display: 'flex', gap: 12 }}>
         <button
           className="chat-welcome-chip active"
           onClick={() => navigate('/')}
         >
-          返回首页
+          {t('error.home')}
         </button>
         <button
           className="chat-welcome-chip"
           onClick={() => window.location.reload()}
         >
-          重新加载
+          {t('error.reload')}
         </button>
       </div>
     </div>

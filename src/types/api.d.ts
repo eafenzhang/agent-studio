@@ -197,6 +197,9 @@ export interface McpServer {
   description?: string;
   connected?: boolean;
   tools?: string[];
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
 }
 
 export interface McpConfig {

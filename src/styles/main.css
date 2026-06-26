@@ -25,6 +25,8 @@
   --accent: var(--seed-primary);
   --accent-bright: var(--seed-accent);
   --accent-hover: #0e8c6c;
+  --accent-a12: rgba(16, 163, 127, 0.12);
+  --accent-a8: rgba(16, 163, 127, 0.08);
 
   /* Status */
   --success: var(--seed-success);
@@ -599,6 +601,8 @@ ul, ol { list-style: none; }
   --cb-switch-active-bg: #00d68f;
   --cb-tag-background: rgba(255, 255, 255, 0.08);
   --cb-sidebar-background: #1a1a1a;
+  --accent-a12: rgba(139, 124, 247, 0.2);
+  --accent-a8: rgba(139, 124, 247, 0.12);
   --wb-color-text-disabled: #666666;
   --wb-todo-menu-bg-hover: rgba(255, 255, 255, 0.06);
 }

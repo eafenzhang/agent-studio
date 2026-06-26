@@ -844,3 +844,88 @@
 .markdown-body pre {
   margin: 8px 0;
 }
+
+/* ===== Conversation Detail (ChatPage) ===== */
+.conversation-detail {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ===== Enhanced Code Blocks ===== */
+.code-block-wrapper pre.code-collapsed {
+  max-height: 480px;
+  overflow: hidden;
+  position: relative;
+}
+.code-block-wrapper pre.code-collapsed::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(transparent, var(--cb-main-area-background));
+  pointer-events: none;
+}
+.code-block-wrapper .code-block-header-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.code-block-wrapper .code-block-header-actions button {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--cb-border);
+  background: var(--cb-main-area-background);
+  color: var(--cb-text-secondary);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.code-block-wrapper .code-block-header-actions button:hover {
+  background: var(--wb-todo-menu-bg-hover);
+}
+
+/* ===== Mermaid Diagram Container ===== */
+.mermaid-container svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ===== Image Wrapper ===== */
+.msg-image-wrapper {
+  transition: box-shadow 0.2s;
+}
+.msg-image-wrapper:hover {
+  box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+}
+
+/* ===== GFM Task List ===== */
+.markdown-body ul:has(input[type="checkbox"]) {
+  padding-left: 0;
+}
+.markdown-body li:has(input[type="checkbox"]) {
+  list-style: none;
+  margin-left: 0;
+}
+.markdown-body input[type="checkbox"] {
+  accent-color: var(--cb-button-primary);
+}
+
+/* ===== Table Responsive ===== */
+.table-wrapper table th,
+.table-wrapper table td {
+  padding: 6px 12px;
+  border: 1px solid var(--cb-border-subtle);
+  text-align: left;
+}
+.table-wrapper table th {
+  background: var(--cb-main-area-background);
+  font-weight: 600;
+  font-size: 12px;
+}
+.table-wrapper table td {
+  font-size: 13px;
+}

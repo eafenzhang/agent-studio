@@ -14,7 +14,7 @@ const ExpertsPage = lazy(() => import('./pages/ExpertsPage'));
 const ToolsPage = lazy(() => import('./pages/ToolsPage'));
 const ArtifactsPage = lazy(() => import('./pages/ArtifactsPage'));
 const ProjectsPage = lazy(() => import('./pages/ProjectsPage'));
-const TasksPage = lazy(() => import('./pages/TasksPage'));
+const FilesPage = lazy(() => import('./pages/FilesPage'));
 const ChatPage = lazy(() => import('./pages/ChatPage'));
 
 /** Shared Suspense fallback for lazy page loading */
@@ -118,18 +118,18 @@ export default function App() {
             }
           />
           <Route
-            path="/tasks"
-            element={
-              <Suspense fallback={<PageFallback />}>
-                <TasksPage />
-              </Suspense>
-            }
-          />
-          <Route
             path="/chat/:convId"
             element={
               <Suspense fallback={<PageFallback />}>
                 <ChatPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/files"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <FilesPage />
               </Suspense>
             }
           />

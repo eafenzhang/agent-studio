@@ -24,6 +24,9 @@ import { useUIStore } from '../stores/ui-store';
 import { useConversationStream } from '../hooks/use-conversation-stream';
 import type { TaskStep, ToolCall } from '../types/api';
 import * as api from '../lib/api';
+import { splitTools } from '../lib/tools';
+import { useQueryClient } from '@tanstack/react-query';
+import { useTaskStepsStore } from '../stores/task-store';
 import MessageBubble from '../components/chat/MessageBubble';
 import ChatInputPanel from '../components/chat/ChatInputPanel';
 import ToolCallCard from '../components/chat/ToolCallCard';
@@ -91,7 +94,13 @@ export default function ChatPage() {
 
   // ---- Local state ----
   const [localMessages, setLocalMessages] = useState<LocalMessage[]>([]);
+  const [editingMessage, setEditingMessage] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+  const [hasAutoTitled, setHasAutoTitled] = useState(false);
+  const renameInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
 
   // ---- UI store ----
   const addToast = useUIStore((s) => s.addToast);
@@ -136,6 +145,18 @@ export default function ChatPage() {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [localMessages, streamingContent, streamingToolCalls.length]);
+
+  // ===============================================================
+  // Persist plan steps to task store (survives page reloads)
+  // ===============================================================
+
+  const taskStoreSetSteps = useTaskStepsStore((s) => s.setSteps);
+
+  useEffect(() => {
+    if (streamingTaskSteps.length > 0) {
+      taskStoreSetSteps(convId || '', streamingTaskSteps);
+    }
+  }, [streamingTaskSteps, convId, taskStoreSetSteps]);
 
   // ===============================================================
   // Handle stream_end: flush streaming content to localMessages
@@ -194,27 +215,15 @@ export default function ChatPage() {
         { id: userMsgId, content: text, isUser: true, createdAt: new Date().toISOString() },
       ]);
 
-      // Build tool IDs from selectedTools
+      // Build tool IDs from selectedTools using shared utility
       let inject_skills: string[] | undefined;
       let mcp_tools: string[] | undefined;
       if (selectedTools.length > 0) {
-        // We need skills and mcpServers data to split. Read from useAPI hooks
-        // via the services module directly.
-        try {
-          const skillListData = await api.getSkills().catch(() => []);
-          const mcpListData = await api.getMcpServers().catch(() => []);
-          const skillSet = new Set(skillListData.map((s) => s.id).filter(Boolean));
-          const mcpSet = new Set(mcpListData.map((m) => m.id).filter(Boolean));
-          const skillIds = selectedTools.filter((id) => skillSet.has(id));
-          const mcpIds = selectedTools.filter((id) => mcpSet.has(id));
-          if (skillIds.length > 0) inject_skills = skillIds;
-          if (mcpIds.length > 0) mcp_tools = mcpIds;
-        } catch {
-          // Fall back to sending selectedTools as generic tools
-        }
+        const categorized = splitTools(selectedTools);
+        inject_skills = categorized.inject_skills;
+        mcp_tools = categorized.mcp_tools;
       }
 
-      // If no data from API call, send as generic tools
       const options: Parameters<typeof send>[1] = {
         model: selectedModel || undefined,
         mode: selectedMode || undefined,
@@ -264,12 +273,100 @@ export default function ChatPage() {
   );
 
   const handleRegenerateMessage = useCallback(() => {
-    addToast('重新生成功能开发中', 'info');
-  }, [addToast]);
+    // Find the last user message
+    const lastUserMsg = [...localMessages].reverse().find((m) => m.isUser);
+    if (!lastUserMsg) {
+      addToast('没有可重新生成的消息', 'info');
+      return;
+    }
+    // Remove assistant messages after the last user message
+    const lastUserIdx = localMessages.lastIndexOf(lastUserMsg);
+    setLocalMessages((prev) => prev.slice(0, lastUserIdx + 1));
+    // Resend with the same content
+    handleSend(lastUserMsg.content);
+  }, [localMessages, addToast, handleSend]);
 
-  const handleEditMessage = useCallback(() => {
-    addToast('编辑功能开发中', 'info');
-  }, [addToast]);
+  const handleEditMessage = useCallback((msgId: string) => {
+    const msg = localMessages.find((m) => m.id === msgId);
+    if (!msg) return;
+    setEditingMessage(msg.content);
+  }, [localMessages]);
+
+  const handleClearEdit = useCallback(() => {
+    setEditingMessage(null);
+  }, []);
+
+  // Auto-generate title from first user message after first AI response (with 1s debounce)
+  useEffect(() => {
+    if (hasAutoTitled || !convId || !conversation) return;
+    if (isStreaming || !streamingContent) return;
+    // Only auto-title if conversation has no real name yet (starts as untitled)
+    const currentName = conversation.name || conversation.title || '';
+    if (currentName && currentName !== '新对话') return;
+
+    // Pick the first user message as the title source
+    const firstUserMsg = localMessages.find((m) => m.isUser && !m.id.startsWith('stream-'));
+    if (!firstUserMsg) return;
+
+    const raw = firstUserMsg.content.trim();
+    // Truncate to a reasonable title length
+    const title = raw.length > 40 ? raw.slice(0, 40) + '...' : raw;
+    if (!title) return;
+
+    // Debounce 1s to avoid saving too early during rapid streaming updates
+    const timer = setTimeout(() => {
+      setHasAutoTitled(true);
+      api.updateConversation(convId, { name: title }).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['conversations'] });
+        queryClient.invalidateQueries({ queryKey: ['conversation', convId] });
+      }).catch(() => {
+        // Best-effort
+      });
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [isStreaming, streamingContent, hasAutoTitled, convId, conversation, localMessages, queryClient]);
+
+  const handleStartRename = useCallback(() => {
+    const current = conversation?.name || conversation?.title || '';
+    setRenameValue(current);
+    setRenaming(true);
+    setTimeout(() => {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }, 50);
+  }, [conversation]);
+
+  const handleRenameConfirm = useCallback(async () => {
+    if (!convId) return;
+    const trimmed = renameValue.trim();
+    if (!trimmed) { setRenaming(false); return; }
+    try {
+      await api.updateConversation(convId, { name: trimmed });
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['conversation', convId] });
+      addToast('已重命名', 'success');
+    } catch {
+      addToast('重命名失败', 'error');
+    }
+    setRenaming(false);
+  }, [convId, renameValue, queryClient, addToast]);
+
+  const handleRenameKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') { e.preventDefault(); handleRenameConfirm(); }
+    else if (e.key === 'Escape') { setRenaming(false); }
+  }, [handleRenameConfirm]);
+
+  const handleResetConversation = useCallback(async () => {
+    if (!convId) return;
+    if (!window.confirm('确定要重置对话上下文吗？这将清除 AI 的对话记忆但保留消息记录。')) return;
+    try {
+      await api.resetConversation(convId);
+      addToast('对话上下文已重置', 'success');
+    } catch {
+      addToast('重置失败', 'error');
+    }
+  }, [convId, addToast]);
 
   const handleDeleteConversation = useCallback(async () => {
     if (!convId) return;
@@ -339,12 +436,67 @@ export default function ChatPage() {
           padding: '8px 20px',
           borderBottom: '1px solid var(--cb-border-subtle)',
           flexShrink: 0,
+          minHeight: 40,
         }}
       >
-        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--cb-text-primary)' }}>
-          {conversation?.name || conversation?.title || t('chat.title')}
-        </div>
-        <button
+        {renaming ? (
+          <input
+            ref={renameInputRef}
+            type="text"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={handleRenameKeyDown}
+            onBlur={handleRenameConfirm}
+            style={{
+              fontSize: 13,
+              fontWeight: 500,
+              padding: '2px 8px',
+              border: '1px solid var(--cb-button-primary)',
+              borderRadius: 4,
+              outline: 'none',
+              background: 'var(--cb-surface-primary)',
+              color: 'var(--cb-text-primary)',
+              width: 240,
+            }}
+          />
+        ) : (
+          <div
+            style={{ fontSize: 13, fontWeight: 500, color: 'var(--cb-text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+            onClick={handleStartRename}
+            title="点击重命名"
+          >
+            {conversation?.name || conversation?.title || t('chat.title')}
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" style={{ opacity: 0.4 }}>
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+            </svg>
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button
+            onClick={handleResetConversation}
+            style={{
+              padding: '4px 8px',
+              fontSize: 12,
+              color: 'var(--wb-color-text-disabled)',
+              borderRadius: 4,
+            }}
+            title="重置对话上下文"
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.color = 'var(--cb-button-primary)';
+              (e.currentTarget as HTMLElement).style.background = 'rgba(108,77,255,0.06)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.color = 'var(--wb-color-text-disabled)';
+              (e.currentTarget as HTMLElement).style.background = 'transparent';
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <polyline points="1 4 1 10 7 10" />
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+            </svg>
+          </button>
+          <button
           onClick={handleDeleteConversation}
           style={{
             padding: '4px 8px',
@@ -367,6 +519,7 @@ export default function ChatPage() {
             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
           </svg>
         </button>
+          </div>
       </div>
 
       {/* Messages */}
@@ -426,7 +579,7 @@ export default function ChatPage() {
                   onCopy={() => handleCopyMessage(msg.content)}
                   onDelete={() => handleDeleteMessage(msg.id)}
                   onRegenerate={() => handleRegenerateMessage()}
-                  onEdit={() => handleEditMessage()}
+                  onEdit={() => handleEditMessage(msg.id)}
                   isStreaming={false}
                 />
                 {msg.toolCalls && msg.toolCalls.length > 0 && (
@@ -511,9 +664,12 @@ export default function ChatPage() {
 
       {/* Input */}
       <ChatInputPanel
+        key={editingMessage ? 'edit-mode' : 'send-mode'}
         onSend={handleSend}
         onCancel={cancel}
         isGenerating={isStreaming}
+        initialText={editingMessage ?? undefined}
+        onClearEdit={() => setEditingMessage(null)}
       />
     </div>
   );

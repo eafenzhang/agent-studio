@@ -10,6 +10,7 @@
     "experts": "Experts",
     "tools": "Tools",
     "artifacts": "Artifacts",
+    "files": "Files",
     "settings": "Settings"
   },
   "home": {
@@ -125,5 +126,39 @@
     "saved": "Saved",
     "deleted": "Deleted",
     "created": "Created"
+  },
+  "toolCall": {
+    "pending": "Pending",
+    "running": "Running",
+    "done": "Done",
+    "error": "Error",
+    "args": "Arguments",
+    "result": "Result",
+    "expand": "Show details",
+    "collapse": "Hide details"
+  },
+  "thinking": {
+    "label": "AI thinking...",
+    "expand": "Show reasoning",
+    "collapse": "Hide reasoning"
+  },
+  "error": {
+    "title": "An error occurred",
+    "home": "Go to Home",
+    "reload": "Reload",
+    "unknown": "Unknown error"
+  },
+  "tasks": {
+    "inProgress": "Task in progress...",
+    "completed": "All completed",
+    "progress": "Task progress",
+    "clickToStart": "Click to start",
+    "clickToDone": "Click to complete",
+    "clickToReset": "Click to reset"
+  },
+  "connection": {
+    "connected": "Connected",
+    "connecting": "Connecting...",
+    "disconnected": "Disconnected"
   }
 }

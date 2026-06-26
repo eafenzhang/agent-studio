@@ -128,14 +128,19 @@ export function useConversationStream(
   const [toolCalls, setToolCalls] = useState<ToolCall[]>([]);
   const [taskSteps, setTaskSteps] = useState<TaskStep[]>([]);
   const [thinkingBlocks, setThinkingBlocks] = useState<ThinkingBlock[]>([]);
+  const MAX_THINKING_BLOCKS = 20;
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [turnId, setTurnId] = useState<string | null>(null);
+  const turnIdRef = useRef<string | null>(null);
   const [continuationCount, setContinuationCount] = useState(0);
 
   const activeMsgIdRef = useRef<string | null>(null);
   const unsubsRef = useRef<Array<() => void>>([]);
   const mountedRef = useRef(true);
+  const hasMessageStreamRef = useRef(false);
+  const toolCallTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const TOOL_CALL_TIMEOUT_MS = 120_000;
 
   // ===============================================================
   // rAF-batched content updates
@@ -191,9 +196,11 @@ export function useConversationStream(
   }, []);
 
   const stopStreaming = useCallback(() => {
-    setIsStreaming(false);
-    setGenerating(false);
-    activeMsgIdRef.current = null;
+    // Clear all tool call timeouts
+    for (const [, timer] of toolCallTimersRef.current) clearTimeout(timer);
+    toolCallTimersRef.current.clear();
+
+    // Flush remaining buffer BEFORE clearing activeMsgIdRef
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = 0;
@@ -205,6 +212,9 @@ export function useConversationStream(
       setDisplayContent((prev) => prev + bufferRef.current);
       bufferRef.current = '';
     }
+    setIsStreaming(false);
+    setGenerating(false);
+    activeMsgIdRef.current = null;
   }, [convId, chatAppendChunk, setGenerating]);
 
   const resetStreaming = useCallback(() => {
@@ -227,12 +237,16 @@ export function useConversationStream(
       const { type, envelope } = event;
       const data = event.data as Record<string, unknown>;
 
+      // Mark that we're receiving message.stream protocol
+      hasMessageStreamRef.current = true;
+
       // Filter by conversation and message
       if (envelope.conversation_id && envelope.conversation_id !== convId) return;
       if (envelope.msg_id && envelope.msg_id !== activeMsgIdRef.current) return;
 
-      // Track turn_id
-      if (envelope.turn_id && envelope.turn_id !== turnId) {
+      // Track turn_id (use ref to avoid listener churn)
+      if (envelope.turn_id && envelope.turn_id !== turnIdRef.current) {
+        turnIdRef.current = envelope.turn_id;
         setTurnId(envelope.turn_id);
       }
 
@@ -251,19 +265,25 @@ export function useConversationStream(
             setThinkingBlocks((prev) => {
               // Merge with the last block if it was very recent (streaming thought)
               const last = prev[prev.length - 1];
+              let updated: ThinkingBlock[];
               if (last && (Date.now() - last.timestamp) < 2000) {
-                const updated = [...prev];
+                updated = [...prev];
                 updated[updated.length - 1] = {
                   ...last,
                   content: last.content + thought,
                   timestamp: Date.now(),
                 };
-                return updated;
+              } else {
+                updated = [
+                  ...prev,
+                  { id: `think-${Date.now()}-${prev.length}`, content: thought, timestamp: Date.now() },
+                ];
               }
-              return [
-                ...prev,
-                { id: `think-${Date.now()}-${prev.length}`, content: thought, timestamp: Date.now() },
-              ];
+              // Cap at MAX_THINKING_BLOCKS — drop oldest blocks
+              if (updated.length > MAX_THINKING_BLOCKS) {
+                updated = updated.slice(updated.length - MAX_THINKING_BLOCKS);
+              }
+              return updated;
             });
           }
           break;
@@ -290,6 +310,9 @@ export function useConversationStream(
             // Tool call result
             const { id: tcId, result, status, error: tcError } = getToolCallResult(data);
             if (!tcId) break;
+            // Clear timeout
+            const prevTimer = toolCallTimersRef.current.get(tcId);
+            if (prevTimer) { clearTimeout(prevTimer); toolCallTimersRef.current.delete(tcId); }
             const updates: Partial<ToolCall> = { result, status, endedAt: Date.now() };
             setToolCalls((prev) => prev.map((tc) => (tc.id === tcId ? { ...tc, ...updates } : tc)));
             if (activeMsgIdRef.current) {
@@ -310,6 +333,23 @@ export function useConversationStream(
             if (activeMsgIdRef.current) {
               chatAddToolCall(convId, activeMsgIdRef.current, tc);
             }
+            // Set 120s timeout for this tool call
+            const prevTimer = toolCallTimersRef.current.get(tcId);
+            if (prevTimer) clearTimeout(prevTimer);
+            const timer = setTimeout(() => {
+              if (!mountedRef.current) return;
+              const timeoutUpdates: Partial<ToolCall> = {
+                status: 'error',
+                result: '工具调用超时 (120s)',
+                endedAt: Date.now(),
+              };
+              setToolCalls((prev) => prev.map((tc2) => (tc2.id === tcId ? { ...tc2, ...timeoutUpdates } : tc2)));
+              if (activeMsgIdRef.current) {
+                chatUpdateToolCall(convId, activeMsgIdRef.current, tcId, timeoutUpdates);
+              }
+              toolCallTimersRef.current.delete(tcId);
+            }, TOOL_CALL_TIMEOUT_MS);
+            toolCallTimersRef.current.set(tcId, timer);
           }
           break;
         }
@@ -392,7 +432,6 @@ export function useConversationStream(
       chatAddToolCall,
       chatUpdateToolCall,
       chatSetTaskSteps,
-      turnId,
     ],
   );
 
@@ -402,15 +441,19 @@ export function useConversationStream(
 
   const registerListeners = useCallback(() => {
     cleanupListeners();
+    hasMessageStreamRef.current = false;
 
     // Primary: listen on the real backend `message.stream` event
     const unsubStream = $wsClient.on(WS_EVENTS.MESSAGE_STREAM, handleAgentEvent);
 
-    // Fallback: also listen for legacy v1 individual events (backward compat)
-    // These may still be emitted by older backend versions or hybrid deployments.
+    // Fallback: legacy v1 individual events — only used if message.stream never fires
+    // Once a message.stream event is received, these are skipped.
+    const skipIfStreaming = (fn: (raw: unknown) => void) => (raw: unknown) => {
+      if (!hasMessageStreamRef.current) fn(raw);
+    };
+
     const unsubFallbacks = [
-      $wsClient.on('message_chunk', (raw: unknown) => {
-        // Convert legacy format to message.stream format and dispatch
+      $wsClient.on('message_chunk', skipIfStreaming((raw: unknown) => {
         const p = (raw ?? {}) as Record<string, unknown>;
         handleAgentEvent({
           conversation_id: p.conversation_id,
@@ -419,8 +462,8 @@ export function useConversationStream(
           data: { content: p.chunk ?? p.content ?? '' },
           hidden: false,
         });
-      }),
-      $wsClient.on('tool_call_start', (raw: unknown) => {
+      })),
+      $wsClient.on('tool_call_start', skipIfStreaming((raw: unknown) => {
         const p = (raw ?? {}) as Record<string, unknown>;
         handleAgentEvent({
           conversation_id: p.conversation_id,
@@ -433,8 +476,8 @@ export function useConversationStream(
           },
           hidden: false,
         });
-      }),
-      $wsClient.on('tool_call_result', (raw: unknown) => {
+      })),
+      $wsClient.on('tool_call_result', skipIfStreaming((raw: unknown) => {
         const p = (raw ?? {}) as Record<string, unknown>;
         handleAgentEvent({
           conversation_id: p.conversation_id,
@@ -448,8 +491,8 @@ export function useConversationStream(
           },
           hidden: false,
         });
-      }),
-      $wsClient.on('task_step_update', (raw: unknown) => {
+      })),
+      $wsClient.on('task_step_update', skipIfStreaming((raw: unknown) => {
         const p = (raw ?? {}) as Record<string, unknown>;
         const steps = p.steps as Array<{ id?: string; label?: string; status?: string }> | undefined;
         if (steps && Array.isArray(steps)) {
@@ -463,7 +506,6 @@ export function useConversationStream(
             chatSetTaskSteps(convId, activeMsgIdRef.current, taskSteps);
           }
         } else if (p.step_id && p.label) {
-          // Individual step update (legacy format)
           const stepId = p.step_id as string;
           const updates: Partial<TaskStep> = {
             label: p.label as string,
@@ -476,8 +518,8 @@ export function useConversationStream(
             chatUpdateTaskStep(convId, activeMsgIdRef.current, stepId, updates);
           }
         }
-      }),
-      $wsClient.on('stream_end', (raw: unknown) => {
+      })),
+      $wsClient.on('stream_end', skipIfStreaming((raw: unknown) => {
         const p = (raw ?? {}) as Record<string, unknown>;
         handleAgentEvent({
           conversation_id: p.conversation_id,
@@ -486,8 +528,8 @@ export function useConversationStream(
           data: { status: 'finish', artifacts: p.artifacts },
           hidden: false,
         });
-      }),
-      $wsClient.on('stream_error', (raw: unknown) => {
+      })),
+      $wsClient.on('stream_error', skipIfStreaming((raw: unknown) => {
         const p = (raw ?? {}) as Record<string, unknown>;
         handleAgentEvent({
           conversation_id: p.conversation_id,
@@ -496,7 +538,7 @@ export function useConversationStream(
           data: { message: p.error ?? 'Stream error' },
           hidden: false,
         });
-      }),
+      })),
     ];
 
     unsubsRef.current = [unsubStream, ...unsubFallbacks];
@@ -547,15 +589,15 @@ export function useConversationStream(
       const trimmed = text.trim();
       if (!trimmed) return null;
 
-      // Ensure WS is connected
+      // Ensure WS is connected — register listener BEFORE connect to avoid race
       if (!$wsClient.isConnected) {
-        $wsClient.connect();
         try {
-          await new Promise<void>((resolve, reject) => {
+          const connected = await new Promise<void>((resolve, reject) => {
             const unsub = $wsClient.on(WS_EVENTS.CONNECTED, () => {
               unsub();
               resolve();
             });
+            $wsClient.connect(); // connect AFTER listener registration
             setTimeout(() => {
               unsub();
               reject(new Error('WebSocket connect timeout'));
@@ -565,6 +607,16 @@ export function useConversationStream(
           addToast('无法连接到后端服务，请检查 AionCore 是否已启动', 'warning');
           return null;
         }
+      }
+
+      // Flush any remaining buffer from a prior stream before reset
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = 0;
+      }
+      if (bufferRef.current) {
+        setDisplayContent((prev) => prev + bufferRef.current);
+        bufferRef.current = '';
       }
 
       // Reset state for new turn
@@ -627,7 +679,7 @@ export function useConversationStream(
     if (!activeMsgIdRef.current) return;
     const msgId = activeMsgIdRef.current;
     try {
-      await api.cancelConversation(convId);
+      await api.cancelConversation(convId, turnIdRef.current ?? undefined);
     } catch {
       // Best-effort
     }

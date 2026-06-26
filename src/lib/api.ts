@@ -137,9 +137,11 @@ export async function sendMessage(
 }
 
 export async function cancelConversation(id: string, turnId?: string): Promise<void> {
+  const body: Record<string, unknown> = {};
+  if (turnId) body.turn_id = turnId;
   return request<void>(`/api/conversations/${id}/cancel`, {
     method: 'POST',
-    body: JSON.stringify({ turn_id: turnId ?? '' }),
+    body: JSON.stringify(body),
   });
 }
 

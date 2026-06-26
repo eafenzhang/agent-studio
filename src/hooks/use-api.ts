@@ -3,10 +3,16 @@ import * as api from '../lib/api';
 
 // ===== Conversation hooks =====
 
-export function useConversations() {
+export function useConversations(searchQuery?: string) {
   return useQuery({
-    queryKey: ['conversations'],
-    queryFn: () => api.getConversations(),
+    queryKey: ['conversations', searchQuery || ''],
+    queryFn: () => {
+      const params: Record<string, string> = {};
+      if (searchQuery?.trim()) {
+        params.search = searchQuery.trim();
+      }
+      return api.getConversations(params);
+    },
     staleTime: 30_000,
   });
 }

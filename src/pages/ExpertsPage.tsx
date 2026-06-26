@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { useAssistants } from '../hooks/use-api';
 import { useState, useMemo } from 'react';
 import type { Assistant } from '../types/api';
+import DOMPurify from 'dompurify';
 
 type ExpertFilter = 'all' | 'builtin' | 'custom';
 
@@ -10,9 +11,14 @@ function renderAvatar(assistant: Assistant): JSX.Element {
   const avatar = assistant.avatar || '';
   const name = (assistant.name_i18n && assistant.name_i18n['zh-CN']) || assistant.name || '';
 
-  // HTML content (SVG or img tag from backend) — anything starting with '<'
+  // HTML content (SVG or img tag from backend) — sanitized with DOMPurify
   if (avatar.startsWith('<')) {
-    return <div className="expert-avatar" dangerouslySetInnerHTML={{ __html: avatar }} />;
+    return <div className="expert-avatar" dangerouslySetInnerHTML={{
+      __html: DOMPurify.sanitize(avatar, {
+        ALLOWED_TAGS: ['svg', 'img', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g', 'defs', 'text', 'tspan', 'use', 'clipPath'],
+        ALLOWED_ATTR: ['viewBox', 'width', 'height', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'd', 'cx', 'cy', 'r', 'x', 'y', 'rx', 'ry', 'points', 'transform', 'style', 'src', 'alt', 'class', 'id', 'href', 'clip-path', 'color', 'opacity', 'xmlns', 'preserveAspectRatio'],
+      })
+    }} />;
   }
 
   // Image URL (absolute or relative)

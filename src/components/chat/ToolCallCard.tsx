@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface ToolCallData {
   id: string;
@@ -30,6 +31,7 @@ const statusLabels: Record<ToolCallData['status'], string> = {
 
 export default function ToolCallCard({ toolCall }: ToolCallCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const { t } = useTranslation();
 
   const formatDuration = (): string => {
     if (!toolCall.startedAt) return '';
@@ -52,7 +54,7 @@ export default function ToolCallCard({ toolCall }: ToolCallCardProps) {
           {toolCall.status === 'running' && (
             <span className="tw-w-2 tw-h-2 tw-rounded-full tw-bg-[var(--cb-button-primary)] tw-animate-pulse" />
           )}
-          {statusLabels[toolCall.status]}
+          {t(`toolCall.${toolCall.status}`)}
         </span>
         <span className="tw-text-[13px] tw-font-medium tw-text-[var(--cb-text-primary)] tw-flex-1 tw-truncate">
           {toolCall.name}
@@ -82,7 +84,7 @@ export default function ToolCallCard({ toolCall }: ToolCallCardProps) {
           {/* Arguments */}
           <div>
             <div className="tw-text-[11px] tw-font-medium tw-text-[var(--wb-color-text-disabled)] tw-mb-1 tw-uppercase tw-tracking-wide">
-              参数
+              {t('toolCall.args')}
             </div>
             <pre className="tw-text-xs tw-bg-[var(--cb-main-area-background)] tw-rounded-md tw-p-2 tw-overflow-x-auto tw-font-mono tw-text-[var(--cb-text-secondary)] tw-max-h-[120px] tw-overflow-y-auto">
               {JSON.stringify(toolCall.args, null, 2)}
@@ -93,7 +95,7 @@ export default function ToolCallCard({ toolCall }: ToolCallCardProps) {
           {toolCall.result && (
             <div>
               <div className="tw-text-[11px] tw-font-medium tw-text-[var(--wb-color-text-disabled)] tw-mb-1 tw-uppercase tw-tracking-wide">
-                结果
+                {t('toolCall.result')}
               </div>
               <pre className="tw-text-xs tw-bg-[var(--cb-main-area-background)] tw-rounded-md tw-p-2 tw-overflow-x-auto tw-font-mono tw-text-[var(--cb-text-secondary)] tw-max-h-[200px] tw-overflow-y-auto">
                 {toolCall.result}

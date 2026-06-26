@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ThinkingBlock as ThinkingBlockType } from '../../hooks/use-conversation-stream';
 
 interface ThinkingBlockProps {
@@ -12,6 +13,7 @@ interface ThinkingBlockProps {
  */
 export default function ThinkingBlock({ block }: ThinkingBlockProps) {
   const [expanded, setExpanded] = useState(true);
+  const { t } = useTranslation();
 
   return (
     <div
@@ -58,7 +60,7 @@ export default function ThinkingBlock({ block }: ThinkingBlockProps) {
           >
             <path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5z" />
           </svg>
-          <span>AI 思考中...</span>
+          <span>{t('thinking.label')}</span>
           <svg
             width="12"
             height="12"

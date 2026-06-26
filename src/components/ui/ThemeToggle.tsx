@@ -1,17 +1,19 @@
 import { useUIStore } from '../../stores/ui-store';
+import { useTranslation } from 'react-i18next';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import SettingsBrightnessIcon from '@mui/icons-material/SettingsBrightness';
 
-const themeCycle: Array<{ next: 'light' | 'dark' | 'auto'; icon: JSX.Element; tooltip: string }> = [
-  { next: 'dark', icon: <LightModeIcon sx={{ fontSize: 16 }} />, tooltip: '浅色模式' },
-  { next: 'auto', icon: <DarkModeIcon sx={{ fontSize: 16 }} />, tooltip: '深色模式' },
-  { next: 'light', icon: <SettingsBrightnessIcon sx={{ fontSize: 16 }} />, tooltip: '自动模式' },
+const themeCycle: Array<{ next: 'light' | 'dark' | 'auto'; icon: JSX.Element }> = [
+  { next: 'dark', icon: <LightModeIcon sx={{ fontSize: 16 }} /> },
+  { next: 'auto', icon: <DarkModeIcon sx={{ fontSize: 16 }} /> },
+  { next: 'light', icon: <SettingsBrightnessIcon sx={{ fontSize: 16 }} /> },
 ];
 
 export default function ThemeToggle() {
+  const { t } = useTranslation();
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
 
@@ -27,8 +29,10 @@ export default function ThemeToggle() {
     setTheme(nextTheme);
   };
 
+  const tooltipLabel = theme === 'light' ? t('settings.themeLight') : theme === 'dark' ? t('settings.themeDark') : t('settings.themeAuto');
+
   return (
-    <Tooltip title={display.tooltip}>
+    <Tooltip title={tooltipLabel}>
       <IconButton
         size="small"
         onClick={handleCycle}
