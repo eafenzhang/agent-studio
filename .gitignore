@@ -17,9 +17,6 @@ binaries/
 playwright-report/
 test-results/
 
-# Sidecar binaries (built locally, CI uses placeholders)
-agent-studio-tauri/src-tauri/binaries/
-
 # Stale design artifacts
 .canvas-meta.json
 .design-state.json
