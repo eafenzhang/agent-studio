@@ -684,9 +684,9 @@ export default function ChatInputPanel({
               <button
                 className="chat-toolbar-send"
                 onClick={handleSend}
-                disabled={!text.trim()}
+                disabled={!text.trim() && attachedFiles.length === 0}
                 aria-label={t('home.send')}
-                style={!text.trim() ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
+                style={!text.trim() && attachedFiles.length === 0 ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                   <line x1="12" y1="19" x2="12" y2="5" />

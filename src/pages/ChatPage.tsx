@@ -135,7 +135,7 @@ export default function ChatPage() {
         return {
           id: m.id,
           content: extractContent(m.content),
-          isUser: m.position !== 'left',
+          isUser: m.position === 'right',
           createdAt: m.createdAt,
           toolCalls: (m.toolCalls as ToolCall[]) || prevMsg?.toolCalls || [],
           taskSteps: (m.taskSteps as TaskStep[]) || prevMsg?.taskSteps || [],
@@ -233,15 +233,17 @@ export default function ChatPage() {
   // ===============================================================
 
   const handleSend = useCallback(
-    async (text: string) => {
+    async (text: string, skipUserMsgAdd?: boolean) => {
       if (!convId) return;
 
-      // Add user message immediately
-      const userMsgId = `user-${Date.now()}`;
-      setLocalMessages((prev) => [
-        ...prev,
-        { id: userMsgId, content: text, isUser: true, createdAt: new Date().toISOString() },
-      ]);
+      // Add user message immediately (unless regenerating — the original is already in the list)
+      if (!skipUserMsgAdd) {
+        const userMsgId = `user-${Date.now()}`;
+        setLocalMessages((prev) => [
+          ...prev,
+          { id: userMsgId, content: text, isUser: true, createdAt: new Date().toISOString() },
+        ]);
+      }
 
       // Build tool IDs from selectedTools using shared utility
       let inject_skills: string[] | undefined;
@@ -310,8 +312,8 @@ export default function ChatPage() {
     // Remove assistant messages after the last user message
     const lastUserIdx = localMessages.lastIndexOf(lastUserMsg);
     setLocalMessages((prev) => prev.slice(0, lastUserIdx + 1));
-    // Resend with the same content
-    handleSend(lastUserMsg.content);
+    // Resend with the same content (skip adding user msg — it's already in the list)
+    handleSend(lastUserMsg.content, true);
   }, [localMessages, addToast, handleSend]);
 
   const handleEditMessage = useCallback((msgId: string) => {

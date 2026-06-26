@@ -760,17 +760,17 @@ export default function SettingsPage() {
                 </button>
                 <button
                   onClick={handleSaveProvider}
-                  disabled={fetchingModels || !presetName || !dialogApiKey}
+                  disabled={fetchingModels || !presetName || (!editProvider && !dialogApiKey)}
                   style={{
                     padding: '6px 16px',
-                    background: fetchingModels || !presetName || !dialogApiKey
+                    background: fetchingModels || !presetName || (!editProvider && !dialogApiKey)
                       ? 'var(--wb-color-text-disabled)'
                       : 'var(--cb-button-primary)',
                     color: '#fff',
                     borderRadius: 6,
                     fontSize: 13,
                     fontWeight: 500,
-                    cursor: fetchingModels || !presetName || !dialogApiKey ? 'not-allowed' : 'pointer',
+                    cursor: fetchingModels || !presetName || (!editProvider && !dialogApiKey) ? 'not-allowed' : 'pointer',
                   }}
                 >
                   {fetchingModels ? '保存中...' : editProvider ? '保存修改' : '添加并获取模型'}

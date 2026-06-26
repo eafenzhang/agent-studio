@@ -71,7 +71,10 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
       } catch {
         // Response is not JSON — try to read as text for error info
         const text = await response.text().catch(() => '');
-        throw new Error(text || `HTTP ${response.status}: 响应格式错误`);
+        throw Object.assign(
+          new Error(text || `HTTP ${response.status}: 响应格式错误`),
+          { __httpStatus: response.status }
+        );
       }
 
       // Check HTTP status first
@@ -84,7 +87,8 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
             ? (data as Record<string, unknown>).message
             : undefined) ||
           `HTTP ${response.status}`;
-        throw new Error(String(errMsg));
+        // Attach the HTTP status code so the retry logic can use it
+        throw Object.assign(new Error(String(errMsg)), { __httpStatus: response.status });
       }
 
       // Check API-level success flag
@@ -97,8 +101,13 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       const msg = lastError.message;
+      const statusCode: number | undefined = (lastError as any).__httpStatus;
       // Don't retry on 4xx (client errors) or JSON parse errors
-      const isClientError = /^4\d\d/.test(msg) || msg.includes('Invalid JSON');
+      const isClientError =
+        (statusCode !== undefined && statusCode >= 400 && statusCode < 500) ||
+        /^4\d\d/.test(msg) ||
+        msg.includes('Invalid JSON') ||
+        msg.includes('响应格式错误');
       if (attempt < MAX_RETRIES && !isClientError) {
         await new Promise((r) => setTimeout(r, RETRY_DELAY * (attempt + 1)));
       } else break;
@@ -412,7 +421,7 @@ export async function deleteMemory(id: string): Promise<void> {
 // ===== MCP Extensions =====
 
 export async function getMcpServers(): Promise<McpServer[]> {
-  return request<McpServer[]>('/api/extensions/mcp-servers');
+  return request<McpServer[]>('/api/mcp/servers');
 }
 
 // ===== Custom Agents =====

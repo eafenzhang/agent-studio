@@ -5,6 +5,7 @@ import type { Conversation } from '../../types/api';
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import * as api from '../../lib/api';
+import { useUIStore } from '../../stores/ui-store';
 import { useTaskStepsStore } from '../../stores/task-store';
 
 interface ConversationGroup {
@@ -32,6 +33,7 @@ export default function ConversationList({ search = '', filterMode = 'all' }: Co
   const queryClient = useQueryClient();
   const { data, isLoading } = useConversations(search);
   const deleteMutation = useDeleteConversation();
+  const addToast = useUIStore((s) => s.addToast);
 
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
@@ -186,7 +188,7 @@ export default function ConversationList({ search = '', filterMode = 'all' }: Co
       try {
         await deleteMutation.mutateAsync(convId);
       } catch {
-        // silently fail
+        addToast('删除失败，请稍后重试', 'error');
       }
     } else {
       setDeleteConfirmId(convId);
@@ -200,7 +202,7 @@ export default function ConversationList({ search = '', filterMode = 'all' }: Co
     try {
       await deleteMutation.mutateAsync(contextMenu.conversationId);
     } catch {
-      // silently fail
+      addToast('删除失败，请稍后重试', 'error');
     }
     setContextMenu((prev) => ({ ...prev, visible: false }));
   };
