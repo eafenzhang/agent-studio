@@ -29,7 +29,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTaskStepsStore } from '../stores/task-store';
 import { useAgentStore } from '../stores/agent-store';
 import MessageBubble from '../components/chat/MessageBubble';
-import ChatInputPanel from '../components/chat/ChatInputPanel';
+import ChatInputPanel, { CATEGORIES } from '../components/chat/ChatInputPanel';
+import type { ExpertCategory } from '../components/chat/ChatInputPanel';
 import ToolCallCard from '../components/chat/ToolCallCard';
 import TaskProgressPanel from '../components/chat/TaskProgressPanel';
 import ChatHeader from '../components/chat/ChatHeader';
@@ -108,6 +109,7 @@ export default function ChatPage() {
   const [hasAutoTitled, setHasAutoTitled] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
+  const [expertCategory, setExpertCategory] = useState<ExpertCategory>('全部');
 
   // ---- UI store ----
   const addToast = useUIStore((s) => s.addToast);
@@ -666,6 +668,31 @@ export default function ChatPage() {
         )}
       </div>
 
+      {/* Expert Category Bar */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 3,
+        padding: '4px 20px',
+        borderTop: '1px solid var(--cb-border-subtle)',
+        background: 'var(--cb-main-area-background)',
+        flexShrink: 0,
+      }}>
+        {CATEGORIES.map((cat) => (
+          <button
+            key={cat}
+            onClick={() => setExpertCategory(cat)}
+            style={{
+              fontSize: 12, padding: '3px 10px', borderRadius: 6,
+              fontWeight: expertCategory === cat ? 600 : 400,
+              color: expertCategory === cat ? 'var(--cb-button-primary)' : 'var(--cb-text-secondary)',
+              background: expertCategory === cat ? 'var(--accent-a8, rgba(108,77,255,0.08))' : 'transparent',
+              border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+            }}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
       {/* Input */}
       <ChatInputPanel
         key={editingMessage ? 'edit-mode' : 'send-mode'}
@@ -674,6 +701,7 @@ export default function ChatPage() {
         isGenerating={isStreaming}
         initialText={editingMessage ?? undefined}
         onClearEdit={() => setEditingMessage(null)}
+        expertCategory={expertCategory}
       />
     </div>
   );

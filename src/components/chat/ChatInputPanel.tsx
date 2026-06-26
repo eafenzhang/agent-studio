@@ -48,7 +48,12 @@ export interface ChatInputPanelProps {
   initialText?: string;
   /** Called when editing is cancelled. */
   onClearEdit?: () => void;
+  /** Expert category filter (passed from parent that renders the chips). */
+  expertCategory?: ExpertCategory;
 }
+
+export { CATEGORIES };
+export type { ExpertCategory };
 
 // ===================================================================
 // Constants
@@ -95,6 +100,7 @@ export default function ChatInputPanel({
   placeholder: placeholderProp,
   initialText,
   onClearEdit,
+  expertCategory: expertCategoryProp,
 }: ChatInputPanelProps) {
   const { t } = useTranslation();
 
@@ -174,8 +180,9 @@ export default function ChatInputPanel({
     return result;
   }, [skills, mcpServers]);
 
-  // ---- Expert category filter ----
-  const [expertCategory, setExpertCategory] = useState<ExpertCategory>('全部');
+  // ---- Expert category filter (from parent component's chips)
+  const [localExpertCategory, setLocalExpertCategory] = useState<ExpertCategory>('全部');
+  const expertCategory = expertCategoryProp ?? localExpertCategory;
 
   const expertOptions = useMemo(() => {
     if (!assistants || assistants.length === 0) return [];
@@ -627,63 +634,6 @@ export default function ChatInputPanel({
                   )}
                 </div>
               </div>
-            </div>
-
-            {/* ===== Expert Category Filter ===== */}
-            <div className="chat-dropdown" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              {CATEGORIES.map((cat) => (
-                <button
-                  key={cat}
-                  className={`chat-toolbar-btn ${expertCategory === cat ? 'chat-toolbar-btn-active' : ''}`}
-                  onClick={() => setExpertCategory(cat)}
-                  style={{
-                    fontSize: 12,
-                    padding: '2px 8px',
-                    borderRadius: 6,
-                    fontWeight: expertCategory === cat ? 600 : 400,
-                    color: expertCategory === cat ? 'var(--cb-button-primary)' : 'var(--cb-text-secondary)',
-                    background: expertCategory === cat ? 'var(--accent-a8, rgba(108,77,255,0.08))' : 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {cat}
-                  {cat !== '全部' && expertCategory === cat && expertOptions.length > 0 && (
-                    <span style={{ marginLeft: 3, fontSize: 10, opacity: 0.6 }}>({expertOptions.length})</span>
-                  )}
-                </button>
-              ))}
-              {/* Expert dropdown — shows experts in selected category */}
-              {expertOptions.length > 0 && (
-                <div className="chat-dropdown" style={{ marginLeft: 4 }}>
-                  <button
-                    className="chat-toolbar-btn"
-                    onClick={() => dropdown.toggle('expert')}
-                    disabled={isGenerating}
-                    title="选择专家助手"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                      <circle cx="12" cy="8" r="5" />
-                      <path d="M3 21v-2a7 7 0 0 1 7-7h4a7 7 0 0 1 7 7v2" />
-                    </svg>
-                  </button>
-                  <div className={`chat-dropdown-menu ${dropdown.isOpen('expert') ? 'open' : ''}`}>
-                    {expertOptions.map((exp) => (
-                      <div
-                        key={exp.id}
-                        className={`chat-dropdown-item ${selectedExpert === exp.id ? 'active' : ''}`}
-                        onClick={() => { setSelectedExpert(exp.id); dropdown.close(); }}
-                      >
-                        <span className="chat-dropdown-item-label">{exp.name}</span>
-                        <svg className="chat-dropdown-item-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* ===== ACP (Agent Control Plane) — Aion CLI / Hermes / OpenCode ===== */}

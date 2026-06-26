@@ -69,7 +69,7 @@ describe('HomePage', () => {
     expect(screen.getByPlaceholderText(/输入消息/)).toBeInTheDocument();
   });
 
-  it('sends a message with selected model, mode, expert', async () => {
+  it('sends a message with selected model, mode', async () => {
     mockHealthCheck.mockResolvedValue(true);
     mockCreateConversation.mockResolvedValue({ id: 'conv-1' });
     mockSendMessage.mockResolvedValue({ id: 'msg-1' });
@@ -86,12 +86,6 @@ describe('HomePage', () => {
     fireEvent.click(modeBtn);
     fireEvent.click(screen.getByText('规划'));
 
-    // Select expert via dropdown (person icon button)
-    const expertBtn = document.querySelector('.chat-dropdown [title="选择专家助手"]') || screen.getAllByRole('button').filter(b => b.querySelector('svg')).find(b => b.parentElement?.className?.includes('chat-dropdown'));
-    if (expertBtn) fireEvent.click(expertBtn);
-    const expertItems = screen.getAllByText('助手1');
-    fireEvent.click(expertItems[expertItems.length - 1]);
-
     // Type and send
     const input = screen.getByPlaceholderText(/输入消息/);
     fireEvent.change(input, { target: { value: 'Hello world' } });
@@ -106,7 +100,7 @@ describe('HomePage', () => {
     expect(payload.content).toBe('Hello world');
     expect(payload.model).toBe('deepseek-chat');
     expect(payload.mode).toBe('plan');
-    expect(payload.assistant_id).toBe('a1');
+    expect(payload.assistant_id).toBeTruthy(); // ACP auto-selected
   });
 
   it('shows warning when backend is disconnected', async () => {
