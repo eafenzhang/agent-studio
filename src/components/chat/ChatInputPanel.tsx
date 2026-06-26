@@ -125,6 +125,18 @@ export default function ChatInputPanel({
   const imageInputRef = useRef<HTMLInputElement>(null);
   const dropdown = useDropdown();
   const isEditMode = initialText !== undefined;
+  const [toolTab, setToolTab] = useState<'skill' | 'mcp'>('skill');
+
+  // Derived tool lists for tabbed display
+  const filteredSkills = useMemo(() => {
+    if (!skills || skills.length === 0) return [];
+    return skills.filter((s) => s.id).map((s) => ({ id: s.id, label: s.name || s.id, type: 'skill' as const }));
+  }, [skills]);
+
+  const filteredMcp = useMemo(() => {
+    if (!mcpServers || mcpServers.length === 0) return [];
+    return mcpServers.filter((m) => m.id).map((m) => ({ id: m.id, label: m.name || m.id, type: 'mcp' as const }));
+  }, [mcpServers]);
 
   // Populate textarea when entering edit mode
   useEffect(() => {
@@ -566,24 +578,54 @@ export default function ChatInputPanel({
                 工具
                 {selectedTools.length > 0 && <span className="chat-toolbar-badge">{selectedTools.length}</span>}
               </button>
-              <div className={`chat-dropdown-menu ${dropdown.isOpen('tool') ? 'open' : ''}`}>
-                {toolOptions.length > 0 ? (
-                  toolOptions.map((tool) => (
-                    <div
-                      key={tool.id}
-                      className={`chat-dropdown-item ${selectedTools.includes(tool.id) ? 'active' : ''}`}
-                      onClick={() => handleToolToggle(tool.id)}
-                    >
-                      <span className="chat-dropdown-item-label">{tool.label}</span>
-                      <span className="chat-dropdown-item-hint">{tool.type === 'mcp' ? 'MCP' : 'Skill'}</span>
-                      <svg className="chat-dropdown-item-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
+              <div className={`chat-dropdown-menu chat-dropdown-menu-wide ${dropdown.isOpen('tool') ? 'open' : ''}`} style={{ minWidth: 240 }}>
+                {/* Tab bar */}
+                <div style={{ display: 'flex', borderBottom: '1px solid var(--cb-border-subtle)', marginBottom: 2 }}>
+                  <button
+                    style={{
+                      flex: 1, padding: '7px 8px 5px', fontSize: 12, fontWeight: toolTab === 'skill' ? 600 : 400,
+                      color: toolTab === 'skill' ? 'var(--cb-button-primary)' : 'var(--cb-text-secondary)',
+                      border: 'none', borderBottom: toolTab === 'skill' ? '2px solid var(--cb-button-primary)' : '2px solid transparent',
+                      background: 'transparent', cursor: 'pointer',
+                    }}
+                    onClick={() => setToolTab('skill')}
+                  >
+                    技能 {filteredSkills.length > 0 && `(${filteredSkills.length})`}
+                  </button>
+                  <button
+                    style={{
+                      flex: 1, padding: '7px 8px 5px', fontSize: 12, fontWeight: toolTab === 'mcp' ? 600 : 400,
+                      color: toolTab === 'mcp' ? 'var(--cb-button-primary)' : 'var(--cb-text-secondary)',
+                      border: 'none', borderBottom: toolTab === 'mcp' ? '2px solid var(--cb-button-primary)' : '2px solid transparent',
+                      background: 'transparent', cursor: 'pointer',
+                    }}
+                    onClick={() => setToolTab('mcp')}
+                  >
+                    MCP {filteredMcp.length > 0 && `(${filteredMcp.length})`}
+                  </button>
+                </div>
+                {/* List */}
+                <div style={{ maxHeight: 260, overflowY: 'auto', padding: '2px 0' }}>
+                  {(toolTab === 'skill' ? filteredSkills : filteredMcp).length > 0 ? (
+                    (toolTab === 'skill' ? filteredSkills : filteredMcp).map((tool) => (
+                      <div
+                        key={tool.id}
+                        className={`chat-dropdown-item ${selectedTools.includes(tool.id) ? 'active' : ''}`}
+                        onClick={() => handleToolToggle(tool.id)}
+                      >
+                        <span className="chat-dropdown-item-label">{tool.label}</span>
+                        <span className="chat-dropdown-item-hint">{toolTab === 'mcp' ? 'MCP' : 'Skill'}</span>
+                        <svg className="chat-dropdown-item-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ padding: 20, textAlign: 'center', fontSize: 12, color: 'var(--wb-color-text-disabled)' }}>
+                      {toolTab === 'skill' ? '暂无可用技能' : '暂无 MCP 服务器'}
                     </div>
-                  ))
-                ) : (
-                  <div className="chat-dropdown-section">暂无可选工具</div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
 
