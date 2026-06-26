@@ -1,9 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ChatPage from '../../src/pages/ChatPage';
 import { useUIStore } from '../../src/stores/ui-store';
 import { useChatStore } from '../../src/stores/chat-store';
+import { useTaskStepsStore } from '../../src/stores/task-store';
+
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false, gcTime: 0 } },
+});
+
+function wrapper({ children }: { children: React.ReactNode }) {
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+}
 
 // ===================================================================
 // Hoisted mocks
@@ -66,8 +76,14 @@ vi.mock('../../src/hooks/use-conversation-stream', () => ({
     isConnected: mockStreamState.isConnected,
     turnId: null,
     continuationCount: 0,
+    pendingPermissions: [],
+    lastTurnStats: null,
+    currentAgentName: null,
     send: mockSendMessage,
     cancel: mockCancel,
+    approvePermission: vi.fn(),
+    rejectPermission: vi.fn(),
+    approveAlways: vi.fn(),
   }),
 }));
 
@@ -116,6 +132,8 @@ describe('ChatPage', () => {
       selectedTools: [],
     });
     useChatStore.setState({ messages: {} });
+    useTaskStepsStore.setState({ stepsByConv: {} });
+    localStorage.removeItem('agent-studio-task-steps');
   });
 
   // ===============================================================
@@ -123,13 +141,13 @@ describe('ChatPage', () => {
   // ===============================================================
 
   it('renders the conversation messages from API', () => {
-    render(<ChatPage />);
+    render(<ChatPage />, { wrapper });
     expect(screen.getByText('Hello')).toBeInTheDocument();
   });
 
   it('renders empty state when no messages', () => {
     mockMessagesData = { items: [] };
-    render(<ChatPage />);
+    render(<ChatPage />, { wrapper });
     expect(screen.getByText(/chat.noMessages/)).toBeInTheDocument();
   });
 
@@ -146,7 +164,7 @@ describe('ChatPage', () => {
       error: null,
       isConnected: true,
     };
-    render(<ChatPage />);
+    render(<ChatPage />, { wrapper });
     expect(screen.getByText('AI is thinking...')).toBeInTheDocument();
   });
 
@@ -159,9 +177,9 @@ describe('ChatPage', () => {
       error: null,
       isConnected: true,
     };
-    render(<ChatPage />);
+    render(<ChatPage />, { wrapper });
     expect(screen.getByText('read_file')).toBeInTheDocument();
-    expect(screen.getByText('执行中')).toBeInTheDocument();
+    expect(screen.getByText('toolCall.running')).toBeInTheDocument();
   });
 
   it('renders task progress panel when task steps exist', () => {
@@ -173,9 +191,9 @@ describe('ChatPage', () => {
       error: null,
       isConnected: true,
     };
-    render(<ChatPage />);
+    render(<ChatPage />, { wrapper });
     expect(screen.getByText('分析需求')).toBeInTheDocument();
-    expect(screen.getByText('1/1 已完成')).toBeInTheDocument();
+    expect(screen.getByText('tasks.inProgress')).toBeInTheDocument();
   });
 
   it('does NOT render task progress panel when there are no real steps', () => {
@@ -187,9 +205,9 @@ describe('ChatPage', () => {
       error: null,
       isConnected: true,
     };
-    render(<ChatPage />);
+    render(<ChatPage />, { wrapper });
     // The panel should not render at all since steps is empty
-    expect(screen.queryByText('任务执行中...')).not.toBeInTheDocument();
+    expect(screen.queryByText('tasks.inProgress')).not.toBeInTheDocument();
   });
 
   // ===============================================================
@@ -209,7 +227,7 @@ describe('ChatPage', () => {
         },
       ],
     };
-    render(<ChatPage />);
+    render(<ChatPage />, { wrapper });
     expect(screen.getByText('search_web')).toBeInTheDocument();
     expect(screen.getByText('API 步骤')).toBeInTheDocument();
   });
@@ -225,9 +243,12 @@ describe('ChatPage', () => {
       }],
     };
 
-    const { rerender } = render(<ChatPage />);
-    expect(screen.getByText('read_file')).toBeInTheDocument();
-    expect(screen.getByText('内存步骤')).toBeInTheDocument();
+    const { rerender } = render(<ChatPage />, { wrapper });
+
+    await waitFor(() => {
+      expect(screen.getByText('read_file')).toBeInTheDocument();
+      expect(screen.getByText('内存步骤')).toBeInTheDocument();
+    });
 
     // Simulate API refresh that drops the fields
     mockMessagesData = {
@@ -236,8 +257,8 @@ describe('ChatPage', () => {
     rerender(<ChatPage />);
     await waitFor(() => {
       expect(screen.getByText('read_file')).toBeInTheDocument();
+      expect(screen.getByText('内存步骤')).toBeInTheDocument();
     });
-    expect(screen.getByText('内存步骤')).toBeInTheDocument();
   });
 
   // ===============================================================
@@ -245,7 +266,7 @@ describe('ChatPage', () => {
   // ===============================================================
 
   it('sends a message and calls the hook send function', async () => {
-    render(<ChatPage />);
+    render(<ChatPage />, { wrapper });
     mockSendMessage.mockClear();
 
     const textarea = screen.getAllByRole('textbox')[0];
@@ -276,7 +297,7 @@ describe('ChatPage', () => {
       isConnected: true,
     };
 
-    const { rerender } = render(<ChatPage />);
+    const { rerender } = render(<ChatPage />, { wrapper });
     expect(screen.getByText('Final answer')).toBeInTheDocument();
 
     // After streaming ends, the content should still be visible
@@ -303,7 +324,7 @@ describe('ChatPage', () => {
       isConnected: false,
     };
 
-    render(<ChatPage />);
+    render(<ChatPage />, { wrapper });
     expect(screen.getByText('Connection failed')).toBeInTheDocument();
   });
 
@@ -313,7 +334,7 @@ describe('ChatPage', () => {
 
   it('deletes the conversation and navigates home', async () => {
     window.confirm = vi.fn().mockReturnValue(true);
-    render(<ChatPage />);
+    render(<ChatPage />, { wrapper });
 
     const deleteButtons = screen.getAllByRole('button', { name: 'chat.delete' });
     // Find the header delete button (not the message-level one)

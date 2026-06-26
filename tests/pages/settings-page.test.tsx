@@ -61,6 +61,7 @@ vi.mock('../../src/lib/api', () => ({
   updateProvider: mockUpdateProvider,
   fetchProviderModels: mockFetchProviderModels,
   tryConnect: mockTryConnect,
+  getSystemInfo: vi.fn().mockResolvedValue({ version: '1.0.8' }),
 }));
 
 describe('SettingsPage', () => {
