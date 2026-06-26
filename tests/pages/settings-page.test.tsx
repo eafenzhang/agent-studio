@@ -107,7 +107,7 @@ describe('SettingsPage', () => {
     render(<SettingsPage />, { wrapper });
     expect(screen.getByText('OpenAI')).toBeInTheDocument();
     fireEvent.click(screen.getByText('settings.addModel'));
-    expect(screen.getAllByText('settings.addModel')[1]).toBeInTheDocument();
+    expect(screen.getByText('添加模型提供商')).toBeInTheDocument();
   });
 
   it('saves general settings via updateSettings', async () => {

@@ -27,8 +27,6 @@ const PRESET_PROVIDERS = [
   { name: '自定义', platform: 'openai', apiUrl: '', models: [] as string[] },
 ];
 
-const DEFAULT_MODELS = ['GPT-4o', 'GPT-4o-mini', 'o3-mini', 'deepseek-chat', 'deepseek-reasoner', 'qwen-max-latest', 'glm-4-plus', 'moonshot-v1-128k'];
-
 const TABS = ['general', 'model', 'memory', 'update'] as const;
 type SettingsTab = (typeof TABS)[number];
 
@@ -93,6 +91,13 @@ export default function SettingsPage() {
   const { data: memoryEntries, isLoading: memoryLoading } = useMemory();
   const deleteMemory = useDeleteMemory();
 
+  // ---- Provider dialog state ----
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editProvider, setEditProvider] = useState<{ id: string; name: string; base_url: string; api_key: string } | null>(null);
+  const [presetName, setPresetName] = useState('');
+  const [dialogApiKey, setDialogApiKey] = useState('');
+  const [fetchingModels, setFetchingModels] = useState(false);
+
   // ---- System info state ----
   const [systemVersion, setSystemVersion] = useState<string>('1.0.10');
   const [systemInfoLoading, setSystemInfoLoading] = useState(true);
@@ -111,21 +116,6 @@ export default function SettingsPage() {
     });
     return () => { cancelled = true; };
   }, []);
-
-  // Provider dialog
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: '', base_url: '', api_key: '', platform: 'openai' });
-  const [selectedPreset, setSelectedPreset] = useState('');
-  const [modelName, setModelName] = useState('');
-  const [dialogInitial, setDialogInitial] = useState({
-    name: '',
-    base_url: '',
-    api_key: '',
-    platform: 'openai',
-    selectedPreset: '',
-    modelName: '',
-  });
 
   // Sync language change immediately
   useEffect(() => {
@@ -163,92 +153,86 @@ export default function SettingsPage() {
     setSelectedModel,
   ]);
 
-  const handlePresetChange = (presetName: string) => {
-    setSelectedPreset(presetName);
-    const preset = PRESET_PROVIDERS.find((p) => p.name === presetName);
-    if (preset) {
-      setFormData((prev) => ({
-        ...prev,
-        name: presetName,
-        base_url: preset.apiUrl,
-        platform: preset.platform,
-      }));
-      setModelName(preset.models.length > 0 ? preset.models.join(', ') : '');
-    }
-  };
-
   const openNewDialog = () => {
-    setEditId(null);
-    const initial = { name: '', base_url: '', api_key: '', platform: 'openai' };
-    setFormData(initial);
-    setSelectedPreset('');
-    setModelName('');
-    setDialogInitial({ ...initial, selectedPreset: '', modelName: '' });
+    setEditProvider(null);
+    setPresetName('');
+    setDialogApiKey('');
     setDialogOpen(true);
   };
 
   const openEditDialog = async (id: string) => {
     try {
       const p = await api.getProvider(id);
-      const initial = {
-        name: p.name || '',
-        base_url: p.base_url || '',
-        api_key: p.api_key || '',
-        platform: p.platform || 'openai',
-      };
-      setEditId(id);
-      setFormData(initial);
-      setModelName((p.models || []).join(', '));
-      setSelectedPreset('');
-      setDialogInitial({ ...initial, selectedPreset: '', modelName: (p.models || []).join(', ') });
+      setEditProvider({ id, name: p.name || '', base_url: p.base_url || '', api_key: p.api_key || '' });
+      setPresetName(p.name || '');
+      setDialogApiKey(p.api_key || '');
       setDialogOpen(true);
     } catch {
       addToast(t('common.networkError'), 'error');
     }
   };
 
-  const handleReset = () => {
-    setFormData({
-      name: dialogInitial.name,
-      base_url: dialogInitial.base_url,
-      api_key: dialogInitial.api_key,
-      platform: dialogInitial.platform,
-    });
-    setSelectedPreset(dialogInitial.selectedPreset);
-    setModelName(dialogInitial.modelName);
-  };
-
-  const handleSave = async () => {
-    if (!formData.name || !formData.base_url) {
-      addToast('请填写供应商名称和 API 地址', 'warning');
+  const handleSaveProvider = async () => {
+    if (!presetName || !dialogApiKey) {
+      addToast('请选择供应商并填写 API Key', 'warning');
       return;
     }
+    const preset = PRESET_PROVIDERS.find((p) => p.name === presetName);
+    if (!preset) {
+      addToast('请从列表中选择供应商', 'warning');
+      return;
+    }
+    if (!preset.apiUrl) {
+      addToast('该供应商没有预设 API 地址，请使用自定义选项', 'warning');
+      return;
+    }
+
     try {
-      const models = modelName.split(',').map((m) => m.trim()).filter(Boolean);
-      const payload = { ...formData, models };
-      if (editId) {
-        await api.updateProvider(editId, payload);
-        addToast(t('settings.saved'), 'success');
+      setFetchingModels(true);
+      const payload = {
+        name: presetName,
+        base_url: preset.apiUrl,
+        api_key: dialogApiKey,
+        platform: 'openai',
+        models: preset.models,
+      };
+
+      if (editProvider) {
+        await api.updateProvider(editProvider.id, payload);
       } else {
         await createProvider.mutateAsync(payload);
-        addToast(t('settings.saved'), 'success');
       }
+
+      // After saving, try to fetch models from the API
+      try {
+        const savedId = editProvider?.id;
+        if (savedId) {
+          await api.fetchProviderModels(savedId);
+        } else {
+          // For new providers, invalidate and wait for list to refresh, then fetch
+          await queryClient.invalidateQueries({ queryKey: ['providers'] });
+          await new Promise((r) => setTimeout(r, 500));
+          const freshProviders = queryClient.getQueryData<any[]>(['providers']);
+          if (freshProviders && freshProviders.length > 0) {
+            const newest = freshProviders[freshProviders.length - 1];
+            if (newest.id) await api.fetchProviderModels(newest.id);
+          }
+        }
+        addToast('已保存并尝试获取模型列表', 'success');
+      } catch {
+        addToast('已保存，但自动获取模型列表失败，可稍后手动点击"获取模型"', 'info');
+      }
+
       setDialogOpen(false);
-      setSelectedPreset('');
-      setModelName('');
       queryClient.invalidateQueries({ queryKey: ['providers'] });
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      const isNetworkError = /fetch|NetworkError|Failed to fetch|连接|network/i.test(message);
-      if (isNetworkError) {
-        addToast('保存失败：后端服务未连接，请检查 AionCore 是否已启动', 'error');
-      } else {
-        addToast(t('settings.saveFailed'), 'error');
-      }
+      addToast('保存失败：' + (err instanceof Error ? err.message : String(err)), 'error');
+    } finally {
+      setFetchingModels(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDeleteProvider = async (id: string) => {
     if (!confirm(t('settings.deleteProvider'))) return;
     try {
       await deleteProvider.mutateAsync(id);
@@ -266,17 +250,6 @@ export default function SettingsPage() {
       queryClient.invalidateQueries({ queryKey: ['providers'] });
     } catch {
       addToast(t('settings.fetchFailed'), 'error');
-    }
-  };
-
-  const handleTestConnection = async (id: string) => {
-    try {
-      addToast('正在测试连接...', 'info');
-      await api.fetchProviderModels(id);
-      addToast('连接测试成功 ✓', 'success');
-      queryClient.invalidateQueries({ queryKey: ['providers'] });
-    } catch {
-      addToast('连接测试失败，请检查 API 地址和密钥', 'error');
     }
   };
 
@@ -336,7 +309,7 @@ export default function SettingsPage() {
 
   const allModels = useMemo(() => {
     const fromProviders = (providers || []).flatMap((p) => p.models || []);
-    return Array.from(new Set([...DEFAULT_MODELS, ...fromProviders]));
+    return Array.from(new Set(fromProviders));
   }, [providers]);
 
   return (
@@ -501,7 +474,7 @@ export default function SettingsPage() {
                 </div>
               ) : !providers || providers.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '12px 0', fontSize: 13, color: 'var(--wb-color-text-disabled)' }}>
-                  暂无配置
+                  暂无配置，点击上方按钮添加模型提供商
                 </div>
               ) : (
                 providers.map((p) => (
@@ -511,14 +484,19 @@ export default function SettingsPage() {
                       background: '#fff',
                       border: '1px solid var(--cb-border-subtle)',
                       borderRadius: 8,
-                      padding: 12,
+                      padding: '10px 12px',
                       marginBottom: 8,
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <span style={{ fontWeight: 500, fontSize: 13, color: 'var(--cb-text-primary)' }}>
-                        {p.name || '未知'}
-                      </span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <span style={{ fontWeight: 500, fontSize: 13, color: 'var(--cb-text-primary)' }}>
+                          {p.name || '未知'}
+                        </span>
+                        <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--wb-color-text-disabled)' }}>
+                          {(p.models || []).length > 0 ? `${(p.models || []).length} 个模型` : '暂无模型'}
+                        </span>
+                      </div>
                       <div style={{ display: 'flex', gap: 4 }}>
                         <button
                           onClick={() => handleFetchModels(p.id)}
@@ -531,20 +509,7 @@ export default function SettingsPage() {
                           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)'; }}
                           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                         >
-                          {t('settings.fetchModels')}
-                        </button>
-                        <button
-                          onClick={() => handleTestConnection(p.id)}
-                          style={{
-                            padding: '2px 8px',
-                            fontSize: 12,
-                            borderRadius: 4,
-                            color: '#22c55e',
-                          }}
-                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)'; }}
-                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                        >
-                          {t('settings.testConnection')}
+                          获取模型
                         </button>
                         <button
                           onClick={() => openEditDialog(p.id)}
@@ -557,10 +522,10 @@ export default function SettingsPage() {
                           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)'; }}
                           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                         >
-                          编辑
+                          修改 Key
                         </button>
                         <button
-                          onClick={() => handleDelete(p.id)}
+                          onClick={() => handleDeleteProvider(p.id)}
                           style={{
                             padding: '2px 8px',
                             fontSize: 12,
@@ -574,8 +539,9 @@ export default function SettingsPage() {
                         </button>
                       </div>
                     </div>
-                    <div style={{ fontSize: 12, color: 'var(--wb-color-text-disabled)' }}>
-                      {(p.models || []).join(', ').substring(0, 80)}
+                    <div style={{ fontSize: 11, color: 'var(--wb-color-text-disabled)', marginTop: 4 }}>
+                      {(p.models || []).slice(0, 6).join(' · ')}
+                      {(p.models || []).length > 6 ? ` 等 ${(p.models || []).length} 个` : ''}
                     </div>
                   </div>
                 ))
@@ -671,169 +637,139 @@ export default function SettingsPage() {
       </div>
     </div>
 
-    {/* Add/Edit Provider Dialog (outside main overlay to avoid nesting) */}
+    {/* Add/Edit Provider Dialog */}
     {dialogOpen && (
       <div className="settings-overlay visible" style={{ zIndex: 210 }} onClick={() => setDialogOpen(false)}>
-          <div
-            className="settings-modal"
-            style={{ width: 420, height: 'auto', flexDirection: 'column' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="settings-main-header">
-              <span className="settings-main-title">{editId ? t('settings.editModel') : t('settings.addModel')}</span>
-              <button className="settings-close-btn" onClick={() => setDialogOpen(false)}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-            <div className="settings-content">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {/* Provider preset selector */}
-                <div>
-                  <div className="setting-label" style={{ marginBottom: 4 }}>供应商</div>
-                  <select
-                    className="setting-select"
-                    value={selectedPreset}
-                    onChange={(e) => handlePresetChange(e.target.value)}
-                  >
-                    <option value="">选择供应商...</option>
-                    {PRESET_PROVIDERS.map((p) => (
-                      <option key={p.name} value={p.name}>{p.name}</option>
-                    ))}
-                  </select>
+        <div
+          className="settings-modal"
+          style={{ width: 400, height: 'auto', flexDirection: 'column' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="settings-main-header">
+            <span className="settings-main-title">{editProvider ? '修改 API Key' : '添加模型提供商'}</span>
+            <button className="settings-close-btn" onClick={() => setDialogOpen(false)}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+          <div className="settings-content">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+              {/* Provider preset selector */}
+              <div>
+                <div className="setting-label" style={{ marginBottom: 5 }}>选择供应商</div>
+                <select
+                  className="setting-select"
+                  value={presetName}
+                  onChange={(e) => setPresetName(e.target.value)}
+                  disabled={!!editProvider}
+                >
+                  <option value="">请选择...</option>
+                  {PRESET_PROVIDERS.map((p) => (
+                    <option key={p.name} value={p.name}>
+                      {p.name}{p.apiUrl ? ' — ' + p.apiUrl : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* API URL (auto-filled from preset) */}
+              <div>
+                <div className="setting-label" style={{ marginBottom: 5 }}>API 地址</div>
+                <input
+                  style={{
+                    width: '100%',
+                    padding: '6px 12px',
+                    border: '1px solid var(--cb-border)',
+                    borderRadius: 4,
+                    fontSize: 13,
+                    color: 'var(--cb-text-secondary)',
+                    fontFamily: 'var(--cb-font-family)',
+                    outline: 'none',
+                    background: 'var(--cb-main-area-background)',
+                  }}
+                  value={PRESET_PROVIDERS.find((p) => p.name === presetName)?.apiUrl || ''}
+                  readOnly
+                  placeholder="选择供应商后自动填充"
+                />
+                <div style={{ fontSize: 11, color: 'var(--wb-color-text-disabled)', marginTop: 3 }}>
+                  API 地址由供应商预设自动填充
                 </div>
-                <div>
-                  <div className="setting-label" style={{ marginBottom: 4 }}>{t('settings.modelName')}</div>
-                  <input
-                    style={{
-                      width: '100%',
-                      padding: '6px 12px',
-                      border: '1px solid var(--cb-border)',
-                      borderRadius: 4,
-                      fontSize: 13,
-                      color: 'var(--cb-text-primary)',
-                      fontFamily: 'var(--cb-font-family)',
-                      outline: 'none',
-                    }}
-                    value={formData.name}
-                    onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
-                    placeholder="例如: DeepSeek"
-                  />
+              </div>
+
+              {/* API Key */}
+              <div>
+                <div className="setting-label" style={{ marginBottom: 5 }}>API Key</div>
+                <input
+                  type="password"
+                  style={{
+                    width: '100%',
+                    padding: '6px 12px',
+                    border: '1px solid var(--cb-border)',
+                    borderRadius: 4,
+                    fontSize: 13,
+                    color: 'var(--cb-text-primary)',
+                    fontFamily: 'var(--cb-font-family)',
+                    outline: 'none',
+                  }}
+                  value={dialogApiKey}
+                  onChange={(e) => setDialogApiKey(e.target.value)}
+                  placeholder="sk-..."
+                />
+              </div>
+
+              {/* Model count preview */}
+              {presetName && (
+                <div style={{ fontSize: 12, color: 'var(--cb-text-secondary)', lineHeight: 1.6 }}>
+                  预设模型：
+                  {(() => {
+                    const preset = PRESET_PROVIDERS.find((p) => p.name === presetName);
+                    return preset?.models && preset.models.length > 0
+                      ? preset.models.join('、')
+                      : '保存后将自动从 API 获取最新模型列表';
+                  })()}
                 </div>
-                <div>
-                  <div className="setting-label" style={{ marginBottom: 4 }}>模型 ID</div>
-                  <input
-                    style={{
-                      width: '100%',
-                      padding: '6px 12px',
-                      border: '1px solid var(--cb-border)',
-                      borderRadius: 4,
-                      fontSize: 13,
-                      color: 'var(--cb-text-primary)',
-                      fontFamily: 'var(--cb-font-family)',
-                      outline: 'none',
-                    }}
-                    value={modelName}
-                    onChange={(e) => setModelName(e.target.value)}
-                    placeholder="如 deepseek-chat（多个用逗号分隔）"
-                  />
-                </div>
-                <div>
-                  <div className="setting-label" style={{ marginBottom: 4 }}>{t('settings.apiUrl')}</div>
-                  <input
-                    style={{
-                      width: '100%',
-                      padding: '6px 12px',
-                      border: '1px solid var(--cb-border)',
-                      borderRadius: 4,
-                      fontSize: 13,
-                      color: 'var(--cb-text-primary)',
-                      fontFamily: 'var(--cb-font-family)',
-                      outline: 'none',
-                    }}
-                    value={formData.base_url}
-                    onChange={(e) => setFormData((p) => ({ ...p, base_url: e.target.value }))}
-                    placeholder="https://api.example.com/v1"
-                  />
-                </div>
-                <div>
-                  <div className="setting-label" style={{ marginBottom: 4 }}>{t('settings.apiKey')}</div>
-                  <input
-                    type="password"
-                    style={{
-                      width: '100%',
-                      padding: '6px 12px',
-                      border: '1px solid var(--cb-border)',
-                      borderRadius: 4,
-                      fontSize: 13,
-                      color: 'var(--cb-text-primary)',
-                      fontFamily: 'var(--cb-font-family)',
-                      outline: 'none',
-                    }}
-                    value={formData.api_key}
-                    onChange={(e) => setFormData((p) => ({ ...p, api_key: e.target.value }))}
-                    placeholder="sk-..."
-                  />
-                </div>
-                <div>
-                  <div className="setting-label" style={{ marginBottom: 4 }}>{t('settings.protocol')}</div>
-                  <select
-                    className="setting-select"
-                    value={formData.platform}
-                    onChange={(e) => setFormData((p) => ({ ...p, platform: e.target.value }))}
-                  >
-                    <option value="openai">OpenAI</option>
-                    <option value="anthropic">Anthropic</option>
-                  </select>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
-                  <button
-                    onClick={handleReset}
-                    style={{
-                      padding: '6px 16px',
-                      borderRadius: 6,
-                      fontSize: 13,
-                      color: 'var(--cb-text-secondary)',
-                    }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)'; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                  >
-                    重置
-                  </button>
-                  <button
-                    onClick={() => setDialogOpen(false)}
-                    style={{
-                      padding: '6px 16px',
-                      borderRadius: 6,
-                      fontSize: 13,
-                      color: 'var(--cb-text-secondary)',
-                    }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)'; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                  >
-                    {t('chat.cancel')}
-                  </button>
-                  <button
-                    onClick={handleSave}
-                    style={{
-                      padding: '6px 16px',
-                      background: 'var(--cb-button-primary)',
-                      color: '#fff',
-                      borderRadius: 6,
-                      fontSize: 13,
-                      fontWeight: 500,
-                    }}
-                  >
-                    {t('settings.save')}
-                  </button>
-                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+                <button
+                  onClick={() => setDialogOpen(false)}
+                  style={{
+                    padding: '6px 16px',
+                    borderRadius: 6,
+                    fontSize: 13,
+                    color: 'var(--cb-text-secondary)',
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleSaveProvider}
+                  disabled={fetchingModels || !presetName || !dialogApiKey}
+                  style={{
+                    padding: '6px 16px',
+                    background: fetchingModels || !presetName || !dialogApiKey
+                      ? 'var(--wb-color-text-disabled)'
+                      : 'var(--cb-button-primary)',
+                    color: '#fff',
+                    borderRadius: 6,
+                    fontSize: 13,
+                    fontWeight: 500,
+                    cursor: fetchingModels || !presetName || !dialogApiKey ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {fetchingModels ? '保存中...' : editProvider ? '保存修改' : '添加并获取模型'}
+                </button>
               </div>
             </div>
           </div>
         </div>
-      )}
+      </div>
+    )}
     </>
   );
 }
