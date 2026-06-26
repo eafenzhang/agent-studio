@@ -1,11 +1,11 @@
 {
-  "version": "1.0.15",
-  "notes": "Agent Studio v1.0.15",
-  "pub_date": "2026-06-26T17:18:48Z",
+  "version": "1.0.16",
+  "notes": "Agent Studio v1.0.16",
+  "pub_date": "2026-06-26T17:27:38Z",
   "platforms": {
     "windows-x86_64": {
       "signature": "",
-      "url": "https://github.com/eafenzhang/agent-studio/releases/download/v1.0.15/Agent Studio_1.0.10_x64-setup.exe"
+      "url": "https://github.com/eafenzhang/agent-studio/releases/download/v1.0.16/Agent Studio_1.0.10_x64-setup.exe"
     }
   }
 }
