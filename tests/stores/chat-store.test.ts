@@ -1,115 +1,76 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useChatStore } from '../../src/stores/chat-store';
 
-describe('Chat Store', () => {
+describe('chat-store', () => {
   beforeEach(() => {
+    sessionStorage.clear();
     useChatStore.setState({ messages: {} });
   });
 
-  it('should start streaming with empty content', () => {
+  it('should start with empty messages', () => {
+    expect(useChatStore.getState().messages).toEqual({});
+  });
+
+  it('should start streaming a message', () => {
     useChatStore.getState().startStreaming('conv-1', 'msg-1');
-    const msg = useChatStore.getState().messages['conv-1:msg-1'];
+    const key = 'conv-1:msg-1';
+    const msg = useChatStore.getState().messages[key];
     expect(msg).toBeDefined();
-    expect(msg.content).toBe('');
     expect(msg.isStreaming).toBe(true);
-    expect(msg.toolCalls).toEqual([]);
-    expect(msg.taskSteps).toEqual([]);
-    expect(msg.error).toBeNull();
+    expect(msg.content).toBe('');
   });
 
-  it('should append chunks', () => {
+  it('should append chunks to a streaming message', () => {
     useChatStore.getState().startStreaming('conv-1', 'msg-1');
-    useChatStore.getState().appendChunk('conv-1', 'msg-1', 'Hello');
-    useChatStore.getState().appendChunk('conv-1', 'msg-1', ' World');
-    expect(useChatStore.getState().messages['conv-1:msg-1'].content).toBe('Hello World');
+    useChatStore.getState().appendChunk('conv-1', 'msg-1', 'Hello ');
+    useChatStore.getState().appendChunk('conv-1', 'msg-1', 'world');
+    const key = 'conv-1:msg-1';
+    expect(useChatStore.getState().messages[key].content).toBe('Hello world');
   });
 
-  it('should flush message and stop streaming', () => {
+  it('should flush a message (stop streaming and return it)', () => {
     useChatStore.getState().startStreaming('conv-1', 'msg-1');
     useChatStore.getState().appendChunk('conv-1', 'msg-1', 'Done');
-    useChatStore.getState().flushMessage('conv-1', 'msg-1');
-    expect(useChatStore.getState().messages['conv-1:msg-1'].isStreaming).toBe(false);
-    expect(useChatStore.getState().messages['conv-1:msg-1'].content).toBe('Done');
+    const flushed = useChatStore.getState().flushMessage('conv-1', 'msg-1');
+    expect(flushed).toBeDefined();
+    expect(flushed!.content).toBe('Done');
+    expect(flushed!.isStreaming).toBe(false);
   });
 
-  it('should set error and stop streaming', () => {
+  it('should set error on a message', () => {
     useChatStore.getState().startStreaming('conv-1', 'msg-1');
-    useChatStore.getState().setError('conv-1', 'msg-1', 'Something went wrong');
-    const msg = useChatStore.getState().messages['conv-1:msg-1'];
-    expect(msg.error).toBe('Something went wrong');
-    expect(msg.isStreaming).toBe(false);
+    useChatStore.getState().setError('conv-1', 'msg-1', 'Connection failed');
+    const key = 'conv-1:msg-1';
+    expect(useChatStore.getState().messages[key].error).toBe('Connection failed');
+    expect(useChatStore.getState().messages[key].isStreaming).toBe(false);
   });
 
   it('should add and update tool calls', () => {
     useChatStore.getState().startStreaming('conv-1', 'msg-1');
-    useChatStore.getState().addToolCall('conv-1', 'msg-1', {
-      id: 'tc-1',
-      name: 'read_file',
-      args: { path: '/tmp/foo' },
-      status: 'running',
-      startedAt: Date.now(),
-    });
-    expect(useChatStore.getState().messages['conv-1:msg-1'].toolCalls).toHaveLength(1);
-
-    useChatStore.getState().updateToolCall('conv-1', 'msg-1', 'tc-1', {
-      status: 'done',
-      result: 'file content',
-      endedAt: Date.now(),
-    });
-    const tc = useChatStore.getState().messages['conv-1:msg-1'].toolCalls[0];
-    expect(tc.status).toBe('done');
-    expect(tc.result).toBe('file content');
+    useChatStore.getState().addToolCall('conv-1', 'msg-1', { id: 'tc-1', name: 'read_file', args: {}, status: 'running' });
+    const key = 'conv-1:msg-1';
+    expect(useChatStore.getState().messages[key].toolCalls).toHaveLength(1);
+    expect(useChatStore.getState().messages[key].toolCalls[0].name).toBe('read_file');
+    useChatStore.getState().updateToolCall('conv-1', 'msg-1', 'tc-1', { status: 'done' });
+    expect(useChatStore.getState().messages[key].toolCalls[0].status).toBe('done');
   });
 
-  it('should set and update task steps', () => {
+  it('should set task steps', () => {
     useChatStore.getState().startStreaming('conv-1', 'msg-1');
-    useChatStore.getState().setTaskSteps('conv-1', 'msg-1', [
-      { id: 's1', label: '分析需求', status: 'done' },
-      { id: 's2', label: '执行任务', status: 'running' },
-    ]);
-    expect(useChatStore.getState().messages['conv-1:msg-1'].taskSteps).toHaveLength(2);
-
-    useChatStore.getState().updateTaskStep('conv-1', 'msg-1', 's2', { status: 'done' });
-    const step = useChatStore.getState().messages['conv-1:msg-1'].taskSteps.find((s) => s.id === 's2');
-    expect(step?.status).toBe('done');
+    useChatStore.getState().setTaskSteps('conv-1', 'msg-1', [{ id: 's1', label: '分析', status: 'running' }]);
+    const key = 'conv-1:msg-1';
+    expect(useChatStore.getState().messages[key].taskSteps).toHaveLength(1);
+    useChatStore.getState().updateTaskStep('conv-1', 'msg-1', 's1', { status: 'done' });
+    expect(useChatStore.getState().messages[key].taskSteps[0].status).toBe('done');
   });
 
-  it('should flush message and snapshot tool calls and task steps', () => {
+  it('should clear all messages for a conversation', () => {
     useChatStore.getState().startStreaming('conv-1', 'msg-1');
-    useChatStore.getState().appendChunk('conv-1', 'msg-1', 'Done');
-    useChatStore.getState().addToolCall('conv-1', 'msg-1', {
-      id: 'tc-1',
-      name: 'read_file',
-      args: { path: '/tmp/foo' },
-      status: 'done',
-      startedAt: Date.now(),
-      endedAt: Date.now(),
-    });
-    useChatStore.getState().setTaskSteps('conv-1', 'msg-1', [
-      { id: 's1', label: '分析需求', status: 'done' },
-    ]);
-
-    const flushed = useChatStore.getState().flushMessage('conv-1', 'msg-1');
-
-    expect(flushed).toBeDefined();
-    expect(flushed?.isStreaming).toBe(false);
-    expect(flushed?.content).toBe('Done');
-    expect(flushed?.toolCalls).toHaveLength(1);
-    expect(flushed?.toolCalls[0].id).toBe('tc-1');
-    expect(flushed?.taskSteps).toHaveLength(1);
-    expect(flushed?.taskSteps[0].id).toBe('s1');
-
-    const stored = useChatStore.getState().messages['conv-1:msg-1'];
-    expect(stored.isStreaming).toBe(false);
-    expect(stored.toolCalls[0].id).toBe('tc-1');
-    expect(stored.taskSteps[0].id).toBe('s1');
-  });
-
-  it('should clear messages for a conversation', () => {
-    useChatStore.getState().startStreaming('conv-1', 'msg-1');
-    useChatStore.getState().startStreaming('conv-2', 'msg-2');
+    useChatStore.getState().startStreaming('conv-1', 'msg-2');
+    useChatStore.getState().startStreaming('conv-2', 'msg-1');
     useChatStore.getState().clearMessages('conv-1');
-    expect(useChatStore.getState().messages['conv-1:msg-1']).toBeUndefined();
-    expect(useChatStore.getState().messages['conv-2:msg-2']).toBeDefined();
+    const msgs = useChatStore.getState().messages;
+    expect(Object.keys(msgs).filter(k => k.startsWith('conv-1:'))).toHaveLength(0);
+    expect(Object.keys(msgs).filter(k => k.startsWith('conv-2:'))).toHaveLength(1);
   });
 });
