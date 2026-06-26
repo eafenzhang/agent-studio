@@ -726,7 +726,7 @@ export function useConversationStream(
       cleanupListeners();
 
       // Build payload
-      const payload: Parameters<typeof api.sendMessage>[1] = { content: trimmed };
+      const payload: Parameters<typeof api.sendMessage>[1] = { content: trimmed, type: 'text' };
       if (options?.model) payload.model = options.model;
       if (options?.mode) payload.mode = options.mode;
       if (options?.assistant_id) payload.assistant_id = options.assistant_id;
@@ -740,6 +740,7 @@ export function useConversationStream(
         messageResult = (await $sendMessage(convId, payload)) as unknown as Record<string, unknown>;
       } catch (err) {
         const msg = err instanceof Error ? err.message : '发送失败';
+        console.error('[SendMessage]', msg, 'payload:', JSON.stringify(payload));
         addToast(msg, 'error');
         resetStreaming();
         setGenerating(false);

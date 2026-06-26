@@ -53,18 +53,53 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   let lastError: Error | null = null;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const response = await fetch(url, config);
-      const data = await response.json();
+      let response: Response;
+      try {
+        response = await fetch(url, config);
+      } catch (fetchErr) {
+        // Network error (no response) — retry
+        if (attempt < MAX_RETRIES) {
+          await new Promise((r) => setTimeout(r, RETRY_DELAY * (attempt + 1)));
+          continue;
+        }
+        throw fetchErr;
+      }
 
+      let data: unknown;
+      try {
+        data = await response.json();
+      } catch {
+        // Response is not JSON — try to read as text for error info
+        const text = await response.text().catch(() => '');
+        throw new Error(text || `HTTP ${response.status}: 响应格式错误`);
+      }
+
+      // Check HTTP status first
+      if (!response.ok) {
+        const errMsg =
+          (data && typeof data === 'object' && 'error' in data
+            ? (data as Record<string, unknown>).error
+            : undefined) ||
+          (data && typeof data === 'object' && 'message' in data
+            ? (data as Record<string, unknown>).message
+            : undefined) ||
+          `HTTP ${response.status}`;
+        throw new Error(String(errMsg));
+      }
+
+      // Check API-level success flag
       if (data && typeof data === 'object' && 'success' in data && data.success === false) {
-        throw new Error(data.error || '请求失败');
+        throw new Error((data as Record<string, unknown>).error as string || '请求失败');
       }
 
       // Some endpoints return { success, data }, others return data directly
       return (data && typeof data === 'object' && 'data' in data ? data.data : data) as T;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
-      if (attempt < MAX_RETRIES && !lastError.message.startsWith('4')) {
+      const msg = lastError.message;
+      // Don't retry on 4xx (client errors) or JSON parse errors
+      const isClientError = /^4\d\d/.test(msg) || msg.includes('Invalid JSON');
+      if (attempt < MAX_RETRIES && !isClientError) {
         await new Promise((r) => setTimeout(r, RETRY_DELAY * (attempt + 1)));
       } else break;
     }

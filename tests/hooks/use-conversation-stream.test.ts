@@ -135,7 +135,7 @@ describe('useConversationStream', () => {
       msgId = await result.current.send('Hello');
     });
 
-    expect(mockSendMessage).toHaveBeenCalledWith('conv-1', { content: 'Hello' });
+    expect(mockSendMessage).toHaveBeenCalledWith('conv-1', { content: 'Hello', type: 'text' });
     expect(msgId).toBe('msg-1');
   });
 
@@ -154,6 +154,7 @@ describe('useConversationStream', () => {
 
     expect(mockSendMessage).toHaveBeenCalledWith('conv-1', {
       content: 'Analyze this',
+      type: 'text',
       model: 'gpt-4o',
       mode: 'plan',
       assistant_id: 'expert-1',
@@ -174,6 +175,7 @@ describe('useConversationStream', () => {
 
     expect(mockSendMessage).toHaveBeenCalledWith('conv-1', {
       content: 'Use tools',
+      type: 'text',
       inject_skills: ['skill-1'],
       mcp_tools: ['mcp-1'],
     });
