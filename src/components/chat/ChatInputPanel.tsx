@@ -151,11 +151,26 @@ export default function ChatInputPanel({
 
   const expertOptions = useMemo(() => {
     if (!assistants || assistants.length === 0) return [];
-    return assistants.slice(0, 12).map((a) => ({
+    // Filter out ACP tools (source === 'generated'), only show real experts
+    let list = assistants.filter((a) => a.source !== 'generated');
+
+    // Filter by mode: plan mode shows planning-related experts, research shows others
+    if (selectedMode === 'plan') {
+      list = list.filter((a) => {
+        const tags = (a as any).tags || [];
+        const name = getAssistantName(a).toLowerCase();
+        return tags.some((t: string) => /plan|规划|项目|project|任务|task/i.test(t)) ||
+               /plan|规划/i.test(name);
+      });
+      // Fallback: if no planning experts found, show all
+      if (list.length === 0) list = assistants.filter((a) => a.source !== 'generated');
+    }
+
+    return list.slice(0, 12).map((a) => ({
       id: a.id,
       name: getAssistantName(a),
     }));
-  }, [assistants]);
+  }, [assistants, selectedMode]);
 
   // ===============================================================
   // Auto-resize textarea
@@ -529,7 +544,8 @@ export default function ChatInputPanel({
               </div>
             </div>
 
-            {/* ===== Expert ===== */}
+            {/* ===== Expert (hidden in action mode — Aion CLI/ACP handles it) ===== */}
+            {selectedMode !== 'action' && (
             <div className="chat-dropdown">
               <button
                 className="chat-toolbar-btn"
@@ -563,6 +579,7 @@ export default function ChatInputPanel({
                 )}
               </div>
             </div>
+            )}
 
             <div className="chat-toolbar-spacer" />
 

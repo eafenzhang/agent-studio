@@ -46,9 +46,11 @@ export default function ExpertsPage() {
 
   const filteredData = useMemo(() => {
     if (!assistants) return [];
-    if (filter === 'builtin') return assistants.filter((a) => a.source === 'builtin');
-    if (filter === 'custom') return assistants.filter((a) => a.source !== 'builtin');
-    return assistants;
+    // Filter out ACP tools (Aion CLI, Hermes, OpenCode — source: generated)
+    const realExperts = assistants.filter((a) => a.source !== 'generated');
+    if (filter === 'builtin') return realExperts.filter((a) => a.source === 'builtin');
+    if (filter === 'custom') return realExperts.filter((a) => a.source !== 'builtin');
+    return realExperts;
   }, [assistants, filter]);
 
   const filters: { key: ExpertFilter; label: string }[] = [

@@ -156,7 +156,7 @@ export interface Agent {
   description?: string;
   description_i18n?: Record<string, string>;
   avatar?: string;
-  source?: 'builtin' | 'custom';
+  source?: string;
   command?: string;
   args?: string[];
   enabled?: boolean;
@@ -169,7 +169,7 @@ export interface Assistant {
   description?: string;
   description_i18n?: Record<string, string>;
   avatar?: string;
-  source?: 'builtin' | 'custom';
+  source?: string;
   tags?: string[];
 }
 
