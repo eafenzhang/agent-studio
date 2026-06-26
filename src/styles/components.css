@@ -904,3 +904,13 @@
   height: 100%;
   overflow: hidden;
 }
+
+/* Messages container — scrollable, fills remaining space */
+.conversation-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
