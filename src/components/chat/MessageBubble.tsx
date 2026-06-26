@@ -58,20 +58,19 @@ async function renderMermaid(code: string, id: string): Promise<string | null> {
 }
 
 // ===================================================================
-// Custom Marked Renderer
+// Custom Marked Renderer Factory
 // ===================================================================
 
-const renderer = new marked.Renderer();
+function createRenderer() {
+  const renderer = new marked.Renderer();
+  const mermaidBlocks: Array<{ code: string; index: number }> = [];
 
-// Track mermaid blocks during rendering for post-processing
-let mermaidBlocks: Array<{ code: string; index: number }> = [];
+  renderer.code = (code: string, infostring: string | undefined) => {
+    const language = (infostring || '').toLowerCase();
 
-renderer.code = (code: string, infostring: string | undefined) => {
-  const language = (infostring || '').toLowerCase();
-
-  if (language === 'mermaid') {
-    const idx = mermaidBlocks.length;
-    mermaidBlocks.push({ code, index: idx });
+    if (language === 'mermaid') {
+      const idx = mermaidBlocks.length;
+      mermaidBlocks.push({ code, index: idx });
     return `<div class="mermaid-container" data-mermaid-idx="${idx}" style="text-align:center;padding:12px;background:var(--cb-main-area-background);border-radius:8px;margin:8px 0;min-height:60px;display:flex;align-items:center;justify-content:center;">
       <div class="mermaid-loading" style="font-size:12px;color:var(--cb-text-secondary)">🔮 渲染图表中...</div>
     </div>`;
@@ -129,6 +128,11 @@ renderer.listitem = (text: string, task: boolean, checked: boolean) => {
   }
   return `<li>${text}</li>`;
 };
+
+  return { renderer, getMermaidBlocks: () => mermaidBlocks, resetMermaidBlocks: () => { mermaidBlocks.length = 0; } };
+}
+
+const { renderer, getMermaidBlocks, resetMermaidBlocks } = createRenderer();
 
 marked.setOptions({
   gfm: true,
@@ -292,7 +296,7 @@ export default function MessageBubble({
 
   // Reset mermaid block tracking on each render
   useEffect(() => {
-    mermaidBlocks = [];
+    resetMermaidBlocks();
   }, [content]);
 
   const formatTime = (ts?: string): string => {
@@ -316,7 +320,7 @@ export default function MessageBubble({
 
   const renderedHtml = useMemo(() => {
     if (!content) return '';
-    mermaidBlocks = [];
+    resetMermaidBlocks();
     if (isUser) {
       return sanitizeHtml(content.replace(/\n/g, '<br/>'));
     }
