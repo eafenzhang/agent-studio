@@ -32,6 +32,7 @@ import MessageBubble from '../components/chat/MessageBubble';
 import ChatInputPanel from '../components/chat/ChatInputPanel';
 import ToolCallCard from '../components/chat/ToolCallCard';
 import TaskProgressPanel from '../components/chat/TaskProgressPanel';
+import ChatHeader from '../components/chat/ChatHeader';
 import ThinkingBlock from '../components/chat/ThinkingBlock';
 import PermissionDialog from '../components/chat/PermissionDialog';
 
@@ -103,10 +104,7 @@ export default function ChatPage() {
   // ---- Local state ----
   const [localMessages, setLocalMessages] = useState<LocalMessage[]>([]);
   const [editingMessage, setEditingMessage] = useState<string | null>(null);
-  const [renaming, setRenaming] = useState(false);
-  const [renameValue, setRenameValue] = useState('');
   const [hasAutoTitled, setHasAutoTitled] = useState(false);
-  const renameInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
@@ -339,35 +337,17 @@ export default function ChatPage() {
     return () => clearTimeout(timer);
   }, [isStreaming, streamingContent, hasAutoTitled, convId, conversation, localMessages, queryClient]);
 
-  const handleStartRename = useCallback(() => {
-    const current = conversation?.name || conversation?.title || '';
-    setRenameValue(current);
-    setRenaming(true);
-    setTimeout(() => {
-      renameInputRef.current?.focus();
-      renameInputRef.current?.select();
-    }, 50);
-  }, [conversation]);
-
-  const handleRenameConfirm = useCallback(async () => {
+  const handleRename = useCallback(async (newName: string) => {
     if (!convId) return;
-    const trimmed = renameValue.trim();
-    if (!trimmed) { setRenaming(false); return; }
     try {
-      await api.updateConversation(convId, { name: trimmed });
+      await api.updateConversation(convId, { name: newName });
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
       queryClient.invalidateQueries({ queryKey: ['conversation', convId] });
-      addToast('已重命名', 'success');
+      addToast(t('settings.saved'), 'success');
     } catch {
-      addToast('重命名失败', 'error');
+      addToast(t('settings.saveFailed'), 'error');
     }
-    setRenaming(false);
-  }, [convId, renameValue, queryClient, addToast]);
-
-  const handleRenameKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') { e.preventDefault(); handleRenameConfirm(); }
-    else if (e.key === 'Escape') { setRenaming(false); }
-  }, [handleRenameConfirm]);
+  }, [convId, queryClient, addToast, t]);
 
   const handleResetConversation = useCallback(async () => {
     if (!convId) return;
@@ -501,118 +481,13 @@ export default function ChatPage() {
       )}
 
       {/* Conversation header */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '8px 20px',
-          borderBottom: '1px solid var(--cb-border-subtle)',
-          flexShrink: 0,
-          minHeight: 40,
-        }}
-      >
-        {renaming ? (
-          <input
-            ref={renameInputRef}
-            type="text"
-            value={renameValue}
-            onChange={(e) => setRenameValue(e.target.value)}
-            onKeyDown={handleRenameKeyDown}
-            onBlur={handleRenameConfirm}
-            style={{
-              fontSize: 13,
-              fontWeight: 500,
-              padding: '2px 8px',
-              border: '1px solid var(--cb-button-primary)',
-              borderRadius: 4,
-              outline: 'none',
-              background: 'var(--cb-surface-primary)',
-              color: 'var(--cb-text-primary)',
-              width: 240,
-            }}
-          />
-        ) : (
-          <div
-            style={{ fontSize: 13, fontWeight: 500, color: 'var(--cb-text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
-            onClick={handleStartRename}
-            title="点击重命名"
-          >
-            {conversation?.name || conversation?.title || t('chat.title')}
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" style={{ opacity: 0.4 }}>
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-            </svg>
-            {/* Current agent indicator */}
-            {currentAgentName && (
-              <span style={{
-                fontSize: 11,
-                padding: '1px 8px',
-                borderRadius: 10,
-                background: 'rgba(108,77,255,0.1)',
-                color: 'var(--cb-button-primary)',
-                fontWeight: 500,
-                marginLeft: 4,
-                whiteSpace: 'nowrap',
-              }}>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ verticalAlign: 'middle', marginRight: 3 }}>
-                  <circle cx="12" cy="12" r="10" />
-                  <polyline points="12 6 12 12 16 14" />
-                </svg>
-                {currentAgentName}
-              </span>
-            )}
-          </div>
-        )}
-        <div style={{ display: 'flex', gap: 4 }}>
-          <button
-            onClick={handleResetConversation}
-            style={{
-              padding: '4px 8px',
-              fontSize: 12,
-              color: 'var(--wb-color-text-disabled)',
-              borderRadius: 4,
-            }}
-            title="重置对话上下文"
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.color = 'var(--cb-button-primary)';
-              (e.currentTarget as HTMLElement).style.background = 'rgba(108,77,255,0.06)';
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.color = 'var(--wb-color-text-disabled)';
-              (e.currentTarget as HTMLElement).style.background = 'transparent';
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <polyline points="1 4 1 10 7 10" />
-              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-            </svg>
-          </button>
-          <button
-          onClick={handleDeleteConversation}
-          style={{
-            padding: '4px 8px',
-            fontSize: 12,
-            color: 'var(--wb-color-text-disabled)',
-            borderRadius: 4,
-          }}
-          title={t('chat.delete')}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.color = '#ff4d4f';
-            (e.currentTarget as HTMLElement).style.background = 'rgba(255,77,79,0.06)';
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.color = 'var(--wb-color-text-disabled)';
-            (e.currentTarget as HTMLElement).style.background = 'transparent';
-          }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <polyline points="3 6 5 6 21 6" />
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-          </svg>
-        </button>
-          </div>
-      </div>
+      <ChatHeader
+        conversation={conversation}
+        currentAgentName={currentAgentName}
+        onRename={handleRename}
+        onReset={handleResetConversation}
+        onDelete={handleDeleteConversation}
+      />
 
       {/* Messages */}
       <div className="conversation-messages">
